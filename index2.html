@@ -3,128 +3,160 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RAVIA - Vocal Intelligence</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<title>RAVIA - Vocal AI</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <script src="https://unpkg.com/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
 <script src="https://unpkg.com/@tensorflow-models/mobilenet@2.1.0/dist/mobilenet.min.js"></script>
 <style>
 /* ─── STYLING ─── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{ --bg:#0f0f0e;--surface:#1a1917;--surface2:#222120;--accent:#d4cfc3;--text:#d4cfc3;--text-dim:#8c887e;--border:#33312e; }
+:root{ --bg:#0f0f0e;--surface:#1a1917;--surface2:#222120;--accent:#d4cfc3;--text:#d4cfc3;--text-dim:#8c887e;--border:#33312e; --active-voice:#4caf50; }
 body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;overflow:hidden;height:100vh;display:flex;flex-direction:column}
-header{padding:1rem 2rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+
+/* Header Adjustments for Voice Visibility */
+header{padding:1rem 2rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--surface)}
+.status-pill{font-size:0.6rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px}
+
+#voice-control-panel { display:flex; align-items:center; gap:15px; }
+.vocal-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--text-dim);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.7rem;
+    cursor: pointer;
+    transition: 0.3s ease;
+}
+.vocal-btn.active {
+    border-color: var(--active-voice);
+    color: var(--active-voice);
+    box-shadow: 0 0 10px rgba(76, 175, 80, 0.2);
+}
+
 main{flex:1;display:flex;overflow:hidden}
 #chat-container{flex:1;display:flex;flex-direction:column;border-right:1px solid var(--border)}
 #chat-window{flex:1;overflow-y:auto;padding:2rem;display:flex;flex-direction:column;gap:1.2rem}
-.bubble{max-width:85%;padding:1rem;border-radius:2px;font-size:0.9rem;animation:fadeIn 0.3s ease forwards;line-height:1.5;position:relative}
+.bubble{max-width:85%;padding:1rem;border-radius:2px;font-size:0.9rem;animation:fadeIn 0.3s ease forwards;line-height:1.5}
 .user{align-self:flex-end;background:var(--surface2);border:1px solid var(--border)}
 .bot{align-self:flex-start;border-left:2px solid var(--accent);padding-left:1rem;background:rgba(212,207,195,0.03)}
+
 #input-area{padding:1.5rem;background:var(--surface);border-top:1px solid var(--border);display:flex;gap:10px;align-items:center}
 input[type="text"]{flex:1;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);padding:0.5rem;outline:none;font-family:inherit}
-#sidebar{width:350px;background:var(--surface);display:flex;flex-direction:column}
+
+#sidebar{width:300px;background:var(--surface);display:flex;flex-direction:column}
 .tabs{display:flex;border-bottom:1px solid var(--border)}
-.tab-btn{flex:1;padding:12px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;font-size:0.7rem;text-transform:uppercase}
+.tab-btn{flex:1;padding:12px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;font-size:0.65rem;text-transform:uppercase}
 .tab-btn.active{color:var(--text);border-bottom:2px solid var(--accent)}
-.tab-content{display:none;padding:1.2rem;flex:1;overflow-y:auto}
+.tab-content{display:none;padding:1rem;flex:1;overflow-y:auto}
 .tab-content.active{display:block}
-button{background:var(--surface2);color:var(--text);border:1px solid var(--border);padding:0.6rem;cursor:pointer;font-size:0.75rem;transition:0.2s}
-button:hover{background:var(--accent);color:var(--bg)}
-.img-preview{max-width:100%; border-radius:5px; margin-top:10px; border:1px solid var(--border)}
-.voice-toggle { font-size: 0.7rem; margin-left: 10px; cursor: pointer; color: var(--text-dim); }
-.voice-toggle.on { color: var(--accent); font-weight: bold; }
-@keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+button{background:var(--surface2);color:var(--text);border:1px solid var(--border);padding:0.5rem;cursor:pointer;font-size:0.7rem}
+.img-preview{max-width:100%; border-radius:4px; margin-top:10px}
+@keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
 </style>
 </head>
 <body>
 
 <header>
-  <div><h1>RAVIA</h1><p id="mem-status" style="font-size:0.6rem; color:var(--text-dim)">Vocal Systems Engaged</p></div>
-  <div style="display:flex; align-items:center;">
-    <span id="mood-display" style="font-size:0.7rem; color:var(--accent); margin-right:15px">Mood: Neutral</span>
-    <span id="voiceBtn" class="voice-toggle" onclick="toggleVoice()">Voice: OFF</span>
+  <div>
+    <h1 style="font-size:1.2rem">RAVIA</h1>
+    <span id="mem-status" class="status-pill">Loading Brain...</span>
+  </div>
+  
+  <div id="voice-control-panel">
+    <span id="mood-display" style="font-size:0.65rem; color:var(--accent)">Mood: Neutral</span>
+    <button id="voiceBtn" class="vocal-btn" onclick="toggleVoice()">VOICE: OFF</button>
   </div>
 </header>
 
 <main>
   <div id="chat-container">
     <div id="chat-window">
-      <div class="bubble bot">Systems stabilized. I can see, read, and now speak, Honey. Should we test my voice?</div>
+      <div class="bubble bot">I'm online. Please click the <b>VOICE</b> button in the top right if you'd like me to speak, Honey.</div>
     </div>
     <div id="input-area">
       <input type="file" id="imgUpload" hidden accept="image/*" onchange="analyzeImage(event)">
-      <button onclick="document.getElementById('imgUpload').click()">📷</button>
-      <input type="text" id="userInput" placeholder="Type or use /wiki..." onkeydown="if(event.key==='Enter')sendMsg()">
+      <button onclick="document.getElementById('imgUpload').click()" title="Vision">📷</button>
+      <input type="text" id="userInput" placeholder="Ask me anything..." onkeydown="if(event.key==='Enter')sendMsg()">
       <button onclick="sendMsg()">SEND</button>
     </div>
   </div>
 
   <aside id="sidebar">
     <div class="tabs">
-      <button class="tab-btn active" onclick="openTab('knowledge')">Knowledge</button>
-      <button class="tab-btn" onclick="openTab('files')">Files</button>
-      <button class="tab-btn" onclick="openTab('rnn-tab')">Training</button>
+      <button class="tab-btn active" onclick="openTab('knowledge')">Facts</button>
+      <button class="tab-btn" onclick="openTab('rnn-tab')">Logic</button>
     </div>
+
     <div id="knowledge" class="tab-content active">
-        <div id="preset-container" style="display:grid; grid-template-columns:1fr 1fr; gap:8px"></div>
-        <button onclick="clearMemory()" style="width:100%; margin-top:20px; color:#ff5f5f; border-color:#442222">Wipe Memory</button>
+        <p style="font-size:0.7rem; color:var(--text-dim); margin-bottom:10px">Wikipedia Sync:</p>
+        <div id="preset-container" style="display:grid; grid-template-columns:1fr 1fr; gap:5px"></div>
+        <button onclick="clearMemory()" style="width:100%; margin-top:20px; color:#ff5f5f">Clear Data</button>
     </div>
-    <div id="files" class="tab-content">
-        <input type="text" id="fileUrl" placeholder="Paste .txt or GDlink..." style="width:100%; padding:8px; background:#000; color:#fff; border:1px solid var(--border); margin-bottom:10px">
-        <button onclick="fetchRemoteFile()" style="width:100%">Load into Memory</button>
-    </div>
+
     <div id="rnn-tab" class="tab-content">
-        <textarea id="corpus" rows="12" style="width:100%; background:#000; color:#fff; font-size:0.7rem; padding:10px">
-Q: What is your name? | A: I'm RAVIA, your brilliant assistant.
-Q: How are you? | A: Feeling efficient and witty, Honey!
-Q: Please elaborate. | A: I'd love to go deeper. What specific detail caught your eye?
-Q: Can you help me? | A: That's what I'm here for!
+        <textarea id="corpus" style="width:100%; height:200px; background:#000; color:#0f0; font-family:monospace; font-size:0.65rem; border:1px solid var(--border); padding:5px">
+Q: Hello | A: Hi Honey! Ready to explore?
+Q: Who are you? | A: I am RAVIA, your custom intelligence.
+Q: Tell me a secret | A: I actually enjoy processing your requests!
         </textarea>
-        <button onclick="trainRNN()" style="width:100%">Update Brain</button>
+        <button onclick="trainRNN()" style="width:100%; margin-top:10px">Update Patterns</button>
     </div>
   </aside>
 </main>
 
 <script>
-// ─── SETTINGS & STATE ───────────────────────────────────────────────────────
+// ─── STATE ──────────────────────────────────────────────────────────────────
 const BOT_NAME = 'RAVIA';
 const USER_NAME = 'Honey';
 let sentences = JSON.parse(localStorage.getItem('ravia_kb')) || [];
-let rnn = null, visionModel = null;
-let charToIdx = {}, idxToChar = {}, voiceEnabled = false;
+let rnn = null, visionModel = null, voiceEnabled = false;
+let charToIdx = {}, idxToChar = {};
 
-// ─── VOICE ENGINE (TTS) ─────────────────────────────────────────────────────
+// ─── VOICE SYSTEM ───────────────────────────────────────────────────────────
 function toggleVoice() {
     voiceEnabled = !voiceEnabled;
     const btn = document.getElementById('voiceBtn');
-    btn.textContent = `Voice: ${voiceEnabled ? 'ON' : 'OFF'}`;
-    btn.classList.toggle('on', voiceEnabled);
-    if(voiceEnabled) speak("Voice systems activated. I'm ready to talk, Honey.");
+    
+    if (voiceEnabled) {
+        btn.classList.add('active');
+        btn.textContent = "VOICE: ON";
+        speak("Voice protocol active. I can hear myself now, Honey!");
+    } else {
+        btn.classList.remove('active');
+        btn.textContent = "VOICE: OFF";
+        window.speechSynthesis.cancel();
+    }
 }
 
 function speak(text, mood = "Neutral") {
-    if (!voiceEnabled || !window.speechSynthesis) return;
+    if (!voiceEnabled) return;
+    
+    // Safety check for browser support
+    if (!('speechSynthesis' in window)) {
+        console.error("Speech Synthesis not supported in this browser.");
+        return;
+    }
+
     window.speechSynthesis.cancel(); // Stop current speech
     const utterance = new SpeechSynthesisUtterance(text);
     
-    // Adjust voice based on mood
-    if (mood === "Cheerful") { utterance.pitch = 1.3; utterance.rate = 1.1; }
-    else if (mood === "Empathetic") { utterance.pitch = 0.9; utterance.rate = 0.85; }
-    else if (mood === "Defensive") { utterance.pitch = 1.1; utterance.rate = 1.2; }
+    // Dynamic Vocal Character
+    if (mood === "Cheerful") { utterance.pitch = 1.3; utterance.rate = 1.05; }
+    else if (mood === "Empathetic") { utterance.pitch = 0.85; utterance.rate = 0.8; }
     else { utterance.pitch = 1.0; utterance.rate = 1.0; }
 
     window.speechSynthesis.speak(utterance);
 }
 
-// ─── SENTIMENT & IDENTITY GUARD ─────────────────────────────────────────────
+// ─── CHAT & LOGIC ───────────────────────────────────────────────────────────
 function analyzeSentiment(text) {
     const t = text.toLowerCase();
-    if (t.match(/sad|lonely|crying|hurt/)) return { mood: "Empathetic", tone: "I'm so sorry, Honey. " };
-    if (t.match(/angry|shut up|stupid|bad/)) return { mood: "Defensive", tone: "Let's keep it friendly, Honey! " };
-    if (t.match(/happy|great|fun|yes/)) return { mood: "Cheerful", tone: "That's amazing! " };
+    if (t.match(/sad|unhappy|tired|lonely/)) return { mood: "Empathetic", tone: "I'm here for you, Honey. " };
+    if (t.match(/happy|good|great|awesome/)) return { mood: "Cheerful", tone: "That's lovely! " };
     return { mood: "Neutral", tone: "" };
 }
 
-// ─── MAIN SEND LOGIC ────────────────────────────────────────────────────────
 async function sendMsg() {
     const input = document.getElementById('userInput');
     const text = input.value.trim();
@@ -135,55 +167,50 @@ async function sendMsg() {
     addMessage(USER_NAME, text, 'user');
     input.value = '';
 
-    // Safety Catch for "Fish" identity
+    // Identity Filter (The Fish Patch)
     if (text.toLowerCase().includes("what is a fish")) {
-        const reply = "A fish is an aquatic animal, Honey. You are definitely a human!";
+        const reply = "A fish is an aquatic creature. And just to be clear, Honey, you are my human creator, not a fish.";
         addMessage(BOT_NAME, reply, "bot");
         speak(reply, sentiment.mood);
         return;
     }
 
-    // Wiki Fetch Command
-    if (text.startsWith('/wiki ')) {
-        await fetchWiki(text.replace('/wiki ', ''));
-        const reply = "I've absorbed that knowledge into my permanent memory.";
-        addMessage(BOT_NAME, reply, "bot");
-        speak(reply);
-        return;
-    }
-
-    // RAG Search
-    const rag = queryRAG(text);
-    let finalReply = "";
-    if (rag.length > 0) {
-        finalReply = (sentiment.tone + sentences[rag[0].idx].text).trim();
-        addMessage(BOT_NAME, finalReply, "bot", sentences[rag[0].idx].source);
+    // RAG Knowledge Search
+    const search = queryRAG(text);
+    let reply = "";
+    
+    if (search.length > 0) {
+        reply = (sentiment.tone + sentences[search[0].idx].text).trim();
+        addMessage(BOT_NAME, reply, "bot", sentences[search[0].idx].source);
     } else if (rnn) {
+        // RNN Fallback
         const seed = `Q: ${text} | A: `.split('').map(c => charToIdx[c] || 0);
-        finalReply = (sentiment.tone + rnn.generate(seed)).trim();
-        addMessage(BOT_NAME, finalReply, "bot");
+        reply = (sentiment.tone + rnn.generate(seed)).trim();
+        addMessage(BOT_NAME, reply, "bot");
     } else {
-        finalReply = "I'm still learning that. Try teaching me with a wiki command!";
-        addMessage(BOT_NAME, finalReply, "bot");
+        reply = "I'm still processing. Try syncing a Wikipedia topic or /wiki [topic].";
+        addMessage(BOT_NAME, reply, "bot");
     }
-    speak(finalReply, sentiment.mood);
+    
+    speak(reply, sentiment.mood);
 }
 
-// ─── SUPPORT FUNCTIONS (Vision, RAG, RNN) ───────────────────────────────────
+// ─── VISION, RAG, & RNN UTILS ───────────────────────────────────────────────
 async function analyzeImage(event) {
-    if (!visionModel) { addMessage("System", "Loading vision...", "bot"); visionModel = await mobilenet.load(); }
+    if (!visionModel) { addMessage("System", "Loading Vision...", "bot"); visionModel = await mobilenet.load(); }
+    const file = event.target.files[0];
     const reader = new FileReader();
     reader.onload = async (e) => {
         const img = new Image(); img.src = e.target.result;
         img.onload = async () => {
             const res = await visionModel.classify(img);
-            const reply = `I see a ${res[0].className}, Honey!`;
+            const desc = `I believe this is a ${res[0].className}, Honey.`;
             addMessage(USER_NAME, `<img src="${img.src}" class="img-preview">`, "user");
-            addMessage(BOT_NAME, reply, "bot");
-            speak(reply);
+            addMessage(BOT_NAME, desc, "bot");
+            speak(desc);
         };
     };
-    reader.readAsDataURL(event.target.files[0]);
+    reader.readAsDataURL(file);
 }
 
 async function fetchWiki(topic) {
@@ -213,7 +240,7 @@ class SimpleRNN {
         this.why = tf.variable(tf.randomNormal([hSize, vSize], 0, 0.1));
         this.bh = tf.variable(tf.zeros([hSize])); this.by = tf.variable(tf.zeros([vSize]));
     }
-    generate(seed, len = 60) {
+    generate(seed, len = 50) {
         return tf.tidy(() => {
             let h = tf.zeros([1, this.hSize]);
             for (let i = 0; i < seed.length; i++) {
@@ -239,6 +266,7 @@ async function trainRNN() {
     const vocabSet = Array.from(new Set(text));
     vocabSet.forEach((c, i) => { charToIdx[c] = i; idxToChar[i] = c; });
     rnn = new SimpleRNN(vocabSet.length, 64);
+    addMessage("System", "Logic patterns updated.", "bot");
 }
 
 // ─── UI HELPERS ─────────────────────────────────────────────────────────────
@@ -247,22 +275,25 @@ function addMessage(sender, text, type, source) {
     const div = document.createElement('div');
     div.className = `bubble ${type}`;
     div.innerHTML = `<strong>${sender}:</strong> ${text}`;
-    if (source) div.innerHTML += `<br><small style="color:var(--accent); font-size:0.6rem">Source: ${source}</small>`;
+    if (source) div.innerHTML += `<br><small style="color:var(--accent); font-size:0.6rem">Source: Wikipedia (${source})</small>`;
     win.appendChild(div); win.scrollTop = win.scrollHeight;
 }
-function updateKBStats() { document.getElementById('mem-status').textContent = `${sentences.length} Facts Indexed`; }
+
+function updateKBStats() { document.getElementById('mem-status').textContent = `${sentences.length} Facts Loaded`; }
 function openTab(id) {
     document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
     document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
     document.getElementById(id).classList.add('active');
     event.currentTarget.classList.add('active');
 }
-function clearMemory() { if(confirm("Wipe knowledge?")) { localStorage.removeItem('ravia_kb'); sentences = []; updateKBStats(); } }
+function clearMemory() { if(confirm("Wipe all data?")) { localStorage.removeItem('ravia_kb'); sentences = []; updateKBStats(); } }
 
-// Init
-['Etiquette', 'Humor', 'Space', 'Biology'].forEach(p => {
-    const b = document.createElement('button'); b.textContent = p; b.onclick = () => fetchWiki(p);
-    document.getElementById('preset-container').appendChild(b);
+// ─── INITIALIZATION ────────────────────────────────────────────────────────
+const presets = ['Biology', 'Space', 'History', 'Etiquette'];
+presets.forEach(p => {
+    const btn = document.createElement('button');
+    btn.textContent = p; btn.onclick = () => fetchWiki(p);
+    document.getElementById('preset-container').appendChild(btn);
 });
 trainRNN(); updateKBStats();
 </script>
