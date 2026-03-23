@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>RAVIA - Vision & Intelligence</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Serif+Display&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+<script src="https://unpkg.com/@tensorflow-models/mobilenet@2.1.0/dist/mobilenet.min.js"></script>
+<style>
+/* ─── STYLING ─── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{ --bg:#0f0f0e;--surface:#1a1917;--surface2:#222120;--accent:#d4cfc3;--text:#d4cfc3;--text-dim:#8c887e;--border:#33312e; }
+body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;overflow:hidden;height:100vh;display:flex;flex-direction:column}
+header{padding:1rem 2rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center}
+main{flex:1;display:flex;overflow:hidden}
+#chat-container{flex:1;display:flex;flex-direction:column;border-right:1px solid var(--border)}
+#chat-window{flex:1;overflow-y:auto;padding:2rem;display:flex;flex-direction:column;gap:1rem}
+.bubble{max-width:85%;padding:0.8rem 1rem;border-radius:2px;font-size:0.9rem;animation:fadeIn 0.3s ease forwards}
+.user{align-self:flex-end;background:var(--surface2);border:1px solid var(--border)}
+.bot{align-self:flex-start;border-left:2px solid var(--accent);padding-left:1rem}
+.sentiment-tag{font-size:0.6rem; opacity:0.6; margin-left:10px; text-transform:uppercase}
+#input-area{padding:1.5rem;background:var(--surface);border-top:1px solid var(--border);display:flex;gap:10px;align-items:center}
+input[type="text"]{flex:1;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);padding:0.5rem;outline:none}
+#sidebar{width:350px;background:var(--surface);display:flex;flex-direction:column}
+.tabs{display:flex;border-bottom:1px solid var(--border)}
+.tab-btn{flex:1;padding:10px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;font-size:0.7rem}
+.tab-btn.active{color:var(--text);border-bottom:2px solid var(--accent)}
+.tab-content{display:none;padding:1.2rem;flex:1;overflow-y:auto}
+.tab-content.active{display:block}
+button{background:var(--surface2);color:var(--text);border:1px solid var(--border);padding:0.5rem;cursor:pointer;font-size:0.7rem}
+button:hover{background:var(--accent);color:var(--bg)}
+img.preview{max-width:200px; margin-top:10px; border:1px solid var(--border)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>RAVIA 3.0</h1>
+  <div id="status" style="font-size:0.7rem">System Online</div>
+</header>
+
+<main>
+  <div id="chat-container">
+    <div id="chat-window">
+      <div class="bubble bot">Welcome back, Honey. I'm loaded and ready. I can read Wikipedia, analyze images, and fetch remote files now.</div>
+    </div>
+    <div id="input-area">
+      <input type="file" id="imgUpload" hidden accept="image/*" onchange="analyzeImage(event)">
+      <button onclick="document.getElementById('imgUpload').click()">📷</button>
+      <input type="text" id="userInput" placeholder="Ask me something..." onkeydown="if(event.key==='Enter')sendMsg()">
+      <button onclick="sendMsg()">Send</button>
+    </div>
+  </div>
+
+  <aside id="sidebar">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="openTab('knowledge')">Knowledge</button>
+      <button class="tab-btn" onclick="openTab('files')">Remote Files</button>
+      <button class="tab-btn" onclick="openTab('rnn-tab')">Training</button>
+    </div>
+
+    <div id="knowledge" class="tab-content active">
+      <div id="preset-container" style="display:grid; grid-template-columns:1fr 1fr; gap:5px"></div>
+      <p id="kb-count" style="font-size:0.7rem; margin-top:10px"></p>
+    </div>
+
+    <div id="files" class="tab-content">
+      <p style="font-size:0.7rem; margin-bottom:10px">Paste a direct URL to a .txt file or a public Google Drive Link:</p>
+      <input type="text" id="fileUrl" placeholder="https://..." style="width:100%; font-size:0.7rem; margin-bottom:10px; background:var(--bg); border:1px solid var(--border); color:white">
+      <button onclick="fetchRemoteFile()" style="width:100%">Load File into RAG</button>
+    </div>
+
+    <div id="rnn-tab" class="tab-content">
+      <textarea id="corpus" rows="10" style="width:100%; background:black; color:white; font-size:0.7rem">
+Q: Who are you? | A: I'm RAVIA, your versatile assistant.
+Q: Please elaborate. | A: Certainly, Honey. Let's dive deeper into the specifics.
+Q: Can you help me? | A: I'm always here to help you navigate facts or chat.
+Q: Hello | A: Hi Honey! What's on the horizon today?
+      </textarea>
+      <button onclick="trainRNN()" style="width:100%">Update RNN</button>
+    </div>
+  </aside>
+</main>
+
+<script>
+let sentences = JSON.parse(localStorage.getItem('ravia_kb')) || [];
+let rnn = null, net = null;
+let charToIdx = {}, idxToChar = {};
+
+// ─── SENTIMENT ENGINE ────────────────────────────────────────────────────────
+function getSentiment(text) {
+  const t = text.toLowerCase();
+  if (t.match(/angry|mad|hate|stop|annoying/)) return "Defensive";
+  if (t.match(/happy|love|great|good|awesome/)) return "Cheerful";
+  if (t.match(/help|sad|please|elaborate/)) return "Empathetic";
+  return "Neutral";
+}
+
+// ─── IMAGE RECOGNITION ───────────────────────────────────────────────────────
+async function analyzeImage(event) {
+  if (!net) {
+    addMessage("System", "Loading Vision Module...", "bot");
+    net = await mobilenet.load();
+  }
+  const file = event.target.files[0];
+  const reader = new FileReader();
+  reader.onload = async (e) => {
+    const img = new Image();
+    img.src = e.target.result;
+    img.onload = async () => {
+      const predictions = await net.classify(img);
+      addMessage(USER_NAME, `<img src="${img.src}" class="preview"><br>What's this?`, "user");
+      addMessage("RAVIA", `Looking at this, I'm ${Math.round(predictions[0].probability*100)}% sure it's a ${predictions[0].className}. How's that for vision, Honey?`, "bot");
+    };
+  };
+  reader.readAsDataURL(file);
+}
+
+// ─── GOOGLE / REMOTE FILE ACCESS ──────────────────────────────────────────────
+async function fetchRemoteFile() {
+  let url = document.getElementById('fileUrl').value;
+  // Convert Google Drive share link to direct download link
+  if (url.includes('drive.google.com')) {
+    const id = url.split('/d/')[1].split('/')[0];
+    url = `https://docs.google.com/uc?export=download&id=${id}`;
+  }
+  try {
+    const res = await fetch(url).then(r => r.text());
+    res.split(/[.!?]\s+/).forEach(s => {
+      if (s.length > 20) sentences.push({ text: s.trim(), source: "Remote File" });
+    });
+    localStorage.setItem('ravia_kb', JSON.stringify(sentences));
+    updateKBStats();
+    addMessage("RAVIA", "Remote file indexed. I've added that to my knowledge bank.", "bot");
+  } catch(e) { addMessage("System", "Could not access file. Check URL or CORS settings.", "bot"); }
+}
+
+// ─── WIKI & RAG ──────────────────────────────────────────────────────────────
+async function fetchWiki(topic) {
+  const url = `https://en.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&exintro=0&explaintext=1&titles=${encodeURIComponent(topic)}&origin=*`;
+  const res = await fetch(url).then(r => r.json());
+  const page = Object.values(res.query.pages)[0];
+  if (page.extract) {
+    page.extract.split(/[.!?]\s+/).forEach(s => {
+      if (s.length > 25) sentences.push({ text: s.trim(), source: topic });
+    });
+    localStorage.setItem('ravia_kb', JSON.stringify(sentences));
+    updateKBStats();
+  }
+}
+
+function queryRAG(query) {
+  const q = query.toLowerCase();
+  return sentences
+    .map((s, i) => ({ idx: i, score: q.split(' ').filter(w => w.length > 3 && s.text.toLowerCase().includes(w)).length }))
+    .filter(r => r.score > 0)
+    .sort((a,b) => b.score - a.score);
+}
+
+// ─── CHAT LOGIC ─────────────────────────────────────────────────────────────
+async function sendMsg() {
+  const input = document.getElementById('userInput');
+  const text = input.value.trim();
+  if (!text) return;
+
+  const sentiment = getSentiment(text);
+  addMessage(USER_NAME, text, 'user');
+  input.value = '';
+
+  // Command Check
+  if (text.startsWith('/wiki ')) {
+    await fetchWiki(text.replace('/wiki ', ''));
+    addMessage("RAVIA", "Wiki page absorbed. My brain is growing!", "bot");
+    return;
+  }
+
+  // RAG Search
+  const ragResults = queryRAG(text);
+  if (ragResults.length > 0) {
+    let response = sentences[ragResults[0].idx].text;
+    if (sentiment === "Defensive") response = "Listen Honey, I found this for you, but let's keep it civil: " + response;
+    addMessage("RAVIA", response, "bot", sentences[ragResults[0].idx].source);
+  } else {
+    // RNN Fallback
+    const seed = `Q: ${text} | A: `.split('').map(c => charToIdx[c] || 0);
+    const reply = rnn ? rnn.generate(seed) : "I'm still learning that, Honey.";
+    addMessage("RAVIA", reply + ` <span class="sentiment-tag">[Mood: ${sentiment}]</span>`, "bot");
+  }
+}
+
+// ─── UTILS ──────────────────────────────────────────────────────────────────
+function addMessage(sender, text, type, source) {
+  const win = document.getElementById('chat-window');
+  const div = document.createElement('div');
+  div.className = `bubble ${type}`;
+  div.innerHTML = `<strong>${sender}:</strong> ${text}${source ? `<br><small style="color:var(--accent)">Source: ${source}</small>` : ''}`;
+  win.appendChild(div);
+  win.scrollTop = win.scrollHeight;
+}
+
+function updateKBStats() {
+  document.getElementById('kb-count').textContent = `Index: ${sentences.length} facts.`;
+}
+
+function openTab(id) {
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+// ... SimpleRNN Class remains similar to previous version ...
+class SimpleRNN {
+  constructor(vSize, hSize) {
+    this.vSize = vSize; this.hSize = hSize;
+    this.wxh = tf.variable(tf.randomNormal([vSize, hSize], 0, 0.1));
+    this.whh = tf.variable(tf.randomNormal([hSize, hSize], 0, 0.1));
+    this.why = tf.variable(tf.randomNormal([hSize, vSize], 0, 0.1));
+    this.bh = tf.variable(tf.zeros([hSize]));
+    this.by = tf.variable(tf.zeros([vSize]));
+  }
+  generate(seed, len = 60) {
+    return tf.tidy(() => {
+      let h = tf.zeros([1, this.hSize]);
+      for (let i = 0; i < seed.length; i++) {
+        let x = tf.oneHot([seed[i]], this.vSize).asType('float32');
+        h = tf.tanh(tf.add(tf.add(tf.matMul(x, this.wxh), tf.matMul(h, this.whh)), this.bh));
+      }
+      let res = ""; let last = seed[seed.length-1];
+      for (let i = 0; i < len; i++) {
+        let x = tf.oneHot([last], this.vSize).asType('float32');
+        h = tf.tanh(tf.add(tf.add(tf.matMul(x, this.wxh), tf.matMul(h, this.whh)), this.bh));
+        let y = tf.add(tf.matMul(h, this.why), this.by);
+        last = tf.argMax(y, 1).dataSync()[0];
+        if (idxToChar[last] === "|") break;
+        res += idxToChar[last] || "";
+      }
+      return res;
+    });
+  }
+}
+
+async function trainRNN() {
+  const text = document.getElementById('corpus').value;
+  const vocabSet = Array.from(new Set(text));
+  vocabSet.forEach((c, i) => { charToIdx[c] = i; idxToChar[i] = c; });
+  rnn = new SimpleRNN(vocabSet.length, 64);
+  updateKBStats();
+}
+
+// Initializing Presets
+const container = document.getElementById('preset-container');
+['Etiquette', 'Humor', 'Space', 'History'].forEach(p => {
+  const b = document.createElement('button');
+  b.textContent = p;
+  b.onclick = () => fetchWiki(p);
+  container.appendChild(b);
+});
+
+updateKBStats();
+trainRNN();
+</script>
+</body>
+</html>
