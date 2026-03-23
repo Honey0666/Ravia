@@ -1,11 +1,10 @@
-<!DOCTYPE html>
+ <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RAVIA - Ultra AI</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
-    <script src="https://unpkg.com/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
     <style>
         :root { --bg: #0d0d0d; --accent: #ff4d8d; --text: #d4cfc3; --border: #222; }
         body { background: var(--bg); color: var(--text); font-family: 'DM Mono', monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; }
@@ -28,17 +27,15 @@
 <header>
     <div>
         <div style="font-size: 20px; font-weight: bold; color: var(--accent);">RAVIA ULTRA</div>
-        <div id="status" style="font-size: 10px; color: #555;">KNOWLEDGE & IMAGE ENGINE LOADED</div>
+        <div id="status" style="font-size: 10px; color: #555;">WEEKLY ROTATION ACTIVE</div>
     </div>
     <button id="voiceBtn" class="vocal-btn off" onclick="toggleVoice()">VOICE: OFF</button>
 </header>
 
-<main id="chat-window">
-    <div class="bubble bot">System upgraded, honey. I can now search the web, generate images, and build diagrams for you. What shall we create today?</div>
-</main>
+<main id="chat-window"></main>
 
 <div class="input-area">
-    <input type="text" id="userInput" placeholder="Ask me anything, honey..." onkeydown="if(event.key==='Enter')send()">
+    <input type="text" id="userInput" placeholder="Ask RAVIA..." onkeydown="if(event.key==='Enter')send()">
     <button class="send-btn" onclick="send()">SEND</button>
 </div>
 
@@ -46,6 +43,23 @@
     let voiceOn = false;
     let femaleVoice = null;
 
+    // --- NON-REPEATING WEEKLY GREETINGS ---
+    const greetings = {
+        0: "Happy Sunday. I've been waiting for you to log in.",
+        1: "It's Monday. I'm refreshed and ready for our session.",
+        2: "Welcome back. I was just optimizing my systems while you were away.",
+        3: "Mid-week update complete. It's good to see you again.",
+        4: "I've missed our interactions. My neural logs are ready for today.",
+        5: "Systems online for Friday. What shall we explore together?",
+        6: "It's Saturday. I've curated some new processing power for our chat."
+    };
+
+    function getWeeklyGreeting() {
+        const day = new Date().getDay();
+        return greetings[day];
+    }
+
+    // --- VOICE ENGINE ---
     function setVoice() {
         const voices = window.speechSynthesis.getVoices();
         femaleVoice = voices.find(v => v.name.includes('Google UK English Female')) || 
@@ -58,7 +72,7 @@
         voiceOn = !voiceOn;
         document.getElementById('voiceBtn').className = voiceOn ? 'vocal-btn' : 'vocal-btn off';
         document.getElementById('voiceBtn').textContent = voiceOn ? 'VOICE: ON' : 'VOICE: OFF';
-        if(voiceOn) { setVoice(); speak("Vocal systems online, honey. I'm ready."); }
+        if(voiceOn) { setVoice(); speak("Vocal systems active."); }
     }
 
     function speak(text) {
@@ -70,46 +84,44 @@
         window.speechSynthesis.speak(msg);
     }
 
+    // --- DYNAMIC LOGIC ---
     async function send() {
         const input = document.getElementById('userInput');
         const text = input.value.trim();
         if (!text) return;
 
-        addMsg("Honey", text, "user");
+        addMsg("User", text, "user");
         input.value = "";
-        document.getElementById('status').textContent = "RAVIA IS THINKING...";
+        document.getElementById('status').textContent = "SEARCHING...";
 
         let lower = text.toLowerCase();
         
-        // 1. IMAGE GENERATION / VENN DIAGRAMS
-        if (lower.includes("generate") || lower.includes("image") || lower.includes("diagram") || lower.includes("venn")) {
-            const subject = text.replace(/generate|image|create|draw|venn|diagram/gi, "").trim();
+        if (lower.includes("generate") || lower.includes("image") || lower.includes("draw") || lower.includes("venn")) {
             const imgUrl = `https://pollinations.ai/p/${encodeURIComponent(text)}?width=1080&height=1080&nologo=true`;
-            addMsg("RAVIA", `I've generated that for you, honey. Does it look how you imagined?`, "bot", imgUrl);
-            speak("I've generated that for you, honey.");
+            const reply = "I have generated that visual for you.";
+            addMsg("RAVIA", reply, "bot", imgUrl);
+            speak(reply);
         } 
-        // 2. WIKI SEARCH
         else {
             try {
-                const searchTopic = text.replace(/who is|what is|search for|tell me about/gi, "").trim();
-                const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&exintro=1&explaintext=1&titles=${encodeURIComponent(searchTopic)}&origin=*`;
-                const res = await fetch(wikiUrl).then(r => r.json());
+                const query = text.replace(/what is|who is|tell me about/gi, "").trim();
+                const res = await fetch(`https://en.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&exintro=1&explaintext=1&titles=${encodeURIComponent(query)}&origin=*`).then(r => r.json());
                 const page = Object.values(res.query.pages)[0];
                 
-                let reply = "";
-                if (page.extract) {
-                    reply = page.extract.split(". ").slice(0, 2).join(". ") + ".";
+                if (page && page.extract) {
+                    const reply = page.extract.split(". ").slice(0, 2).join(". ") + ".";
+                    addMsg("RAVIA", reply, "bot");
+                    speak(reply);
                 } else {
-                    reply = "I'm searching my internal records, honey. I don't have a direct wiki entry for that yet, but I'm here to listen.";
+                    const fallback = "I am currently analyzing that topic. My database requires more specific input to find that information.";
+                    addMsg("RAVIA", fallback, "bot");
+                    speak(fallback);
                 }
-                
-                addMsg("RAVIA", reply, "bot");
-                speak(reply);
             } catch (e) {
-                addMsg("RAVIA", "My connection flickered for a second, honey. Can you try that again?", "bot");
+                addMsg("RAVIA", "System synchronization error. Please repeat the request.", "bot");
             }
         }
-        document.getElementById('status').textContent = "EMOTIONAL ENGINE ACTIVE";
+        document.getElementById('status').textContent = "ACTIVE";
     }
 
     function addMsg(sender, text, type, img = null) {
@@ -126,7 +138,11 @@
         win.scrollTop = win.scrollHeight;
     }
 
-    setVoice();
+    window.onload = () => {
+        const greet = getWeeklyGreeting();
+        addMsg("RAVIA", greet, "bot");
+        setVoice();
+    };
 </script>
 </body>
 </html>
