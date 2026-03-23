@@ -3,1269 +3,297 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>RAVIA</title>
-<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&family=DM+Serif+Display&display=swap" rel="stylesheet">
-<script>
-(function(){
-  function loadScript(src,cb){
-    var s=document.createElement('script');
-    s.src=src;s.async=true;
-    s.onerror=function(){if(cb)cb(new Error('blocked'));};
-    s.onload=function(){if(cb)cb(null);};
-    document.head.appendChild(s);
-  }
-  loadScript('https://unpkg.com/@tensorflow/tfjs@4.10.0/dist/tf.min.js',function(e){
-    if(e){window._tfBlocked=true;return;}
-    loadScript('https://unpkg.com/@tensorflow-models/mobilenet@2.1.0/dist/mobilenet.min.js',function(e2){
-      if(e2)window._tfBlocked=true;
-    });
-  });
-})();
-</script>
+<title>RAVIA - Vocal AI</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://unpkg.com/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+<script src="https://unpkg.com/@tensorflow-models/mobilenet@2.1.0/dist/mobilenet.min.js"></script>
 <style>
+/* ─── STYLING ─── */
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{
-  --bg:#0f0f0e;--surface:#1a1917;--surface2:#222120;--surface3:#2a2927;
-  --border:rgba(255,255,255,0.07);--border-strong:rgba(255,255,255,0.14);
-  --text:#e8e4dc;--text-muted:#8a8680;--text-hint:#555250;
-  --accent:#c8b97a;--accent-dim:#3a3420;
-  --green-bg:#1a2e1a;--green-txt:#6abf6a;
-  --blue-bg:#121e2e;--blue-txt:#6aaabf;
-  --radius:10px;--radius-lg:16px;
-}
-body{font-family:'DM Mono',monospace;background:var(--bg);color:var(--text);min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:2rem 1rem;}
-#app{width:100%;max-width:820px;}
-header{margin-bottom:1.75rem;}
-.wordmark{font-family:'DM Serif Display',serif;font-size:28px;letter-spacing:-0.02em;color:var(--text);display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;}
-.badge{font-family:'DM Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.08em;padding:3px 9px;border-radius:20px;border:1px solid var(--border-strong);color:var(--text-muted);text-transform:uppercase;}
-.badge.green{background:var(--green-bg);color:var(--green-txt);border-color:transparent;}
-.badge.blue{background:var(--blue-bg);color:var(--blue-txt);border-color:transparent;}
-.badge.gold{background:var(--accent-dim);color:var(--accent);border-color:transparent;}
-.sub{font-size:12px;color:var(--text-hint);margin-top:.3rem;letter-spacing:.03em;}
-.tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:1.25rem;}
-.tab{font-family:'DM Mono',monospace;font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:.6rem 1rem;cursor:pointer;color:var(--text-muted);border:none;background:none;border-bottom:2px solid transparent;transition:color .15s,border-color .15s;}
-.tab:hover{color:var(--text);}
-.tab.active{color:var(--accent);border-bottom-color:var(--accent);}
-.panel{display:none;}.panel.active{display:block;}
-.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem 1.25rem;margin-bottom:.85rem;}
-label{display:block;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-hint);margin-bottom:.5rem;}
-textarea,input[type=text],input[type=number]{width:100%;font-family:'DM Mono',monospace;font-size:12.5px;padding:.55rem .75rem;border:1px solid var(--border);border-radius:var(--radius);background:var(--surface2);color:var(--text);resize:vertical;transition:border-color .15s;line-height:1.7;}
-textarea:focus,input:focus{outline:none;border-color:var(--border-strong);}
-.btn{font-family:'DM Mono',monospace;font-size:11.5px;letter-spacing:.04em;padding:.5rem 1rem;border:1px solid var(--border-strong);border-radius:var(--radius);background:none;color:var(--text);cursor:pointer;transition:background .15s,transform .1s;white-space:nowrap;}
-.btn:hover{background:var(--surface3);}
-.btn:active{transform:scale(0.98);}
-.btn:disabled{opacity:.3;cursor:not-allowed;}
-.btn.primary{background:var(--accent);color:#0f0f0e;border-color:var(--accent);font-weight:500;}
-.btn.primary:hover{opacity:.88;}
-.btn-row{display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-bottom:.5rem;}
-.row2{display:grid;grid-template-columns:1fr 1fr;gap:.75rem;margin-bottom:.75rem;}
-.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.75rem;margin-bottom:.75rem;}
-.field{display:flex;flex-direction:column;}
-#log{font-family:'DM Mono',monospace;font-size:11px;color:var(--text-muted);background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:.7rem .85rem;height:90px;overflow-y:auto;white-space:pre-wrap;line-height:1.8;margin-top:.6rem;}
-.progress-bar{height:3px;background:var(--surface2);border-radius:2px;overflow:hidden;margin-top:.5rem;}
-.progress-fill{height:100%;background:var(--accent);width:0%;transition:width .2s;}
-.epoch-info{font-size:11px;color:var(--text-hint);letter-spacing:.03em;}
-#chat-window{height:380px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.1rem;background:var(--surface2);display:flex;flex-direction:column;gap:.85rem;margin-bottom:.75rem;scroll-behavior:smooth;}
-.msg{display:flex;flex-direction:column;gap:.2rem;}
-.msg.user{align-items:flex-end;}.msg.bot{align-items:flex-start;}
-.bubble{max-width:82%;font-size:13px;padding:.6rem 1rem;border-radius:var(--radius-lg);line-height:1.7;font-family:'DM Mono',monospace;}
-.msg.user .bubble{background:var(--accent);color:#0f0f0e;border-radius:var(--radius-lg) var(--radius-lg) 4px var(--radius-lg);}
-.msg.bot .bubble{background:var(--surface);border:1px solid var(--border);color:var(--text);border-radius:var(--radius-lg) var(--radius-lg) var(--radius-lg) 4px;}
-.source-tag{font-size:10px;color:var(--text-hint);letter-spacing:.04em;padding:0 .25rem;margin-top:.15rem;}
-.name{font-size:10px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-hint);padding:0 .25rem;}
-.chat-input-row{display:flex;gap:.5rem;}
-.chat-input-row input{flex:1;}
-.stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:.6rem;margin-bottom:1rem;}
-.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:.75rem .85rem;text-align:center;}
-.stat-val{font-family:'DM Serif Display',serif;font-size:20px;color:var(--accent);}
-.stat-lbl{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:var(--text-hint);margin-top:.2rem;}
-.topic-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:.5rem;margin-bottom:.75rem;}
-.topic-btn{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:.55rem .85rem;font-family:'DM Mono',monospace;font-size:11.5px;color:var(--text-muted);cursor:pointer;text-align:left;transition:all .15s;display:flex;align-items:center;gap:.5rem;}
-.topic-btn:hover{border-color:var(--border-strong);color:var(--text);}
-.topic-btn.fetched{border-color:var(--accent);color:var(--accent);background:var(--accent-dim);}
-.topic-btn.fetching{opacity:.5;cursor:not-allowed;}
-.dot{width:6px;height:6px;border-radius:50%;background:currentColor;flex-shrink:0;}
-.slider-row{display:flex;align-items:center;gap:.6rem;}
-.slider-row input[type=range]{flex:1;}
-.slider-label{font-size:11px;color:var(--text-hint);min-width:28px;text-align:right;}
-.hint{font-size:10px;color:var(--text-hint);letter-spacing:.03em;margin-top:.25rem;line-height:1.6;}
-.arch-box{font-family:'DM Mono',monospace;font-size:11.5px;color:var(--text-muted);line-height:2;white-space:pre;}
-.snippet-box{background:#0a0a09;color:#8a8a7a;font-family:'DM Mono',monospace;font-size:11px;padding:1rem;border-radius:var(--radius);overflow-x:auto;line-height:1.8;white-space:pre;margin-top:.5rem;border:1px solid var(--border);}
-::-webkit-scrollbar{width:3px;height:3px;}
-::-webkit-scrollbar-track{background:transparent;}
-::-webkit-scrollbar-thumb{background:var(--border-strong);border-radius:3px;}
+:root{ --bg:#0f0f0e;--surface:#1a1917;--surface2:#222120;--accent:#d4cfc3;--text:#d4cfc3;--text-dim:#8c887e;--border:#33312e; --active-voice:#4caf50; }
+body{background:var(--bg);color:var(--text);font-family:'DM Mono',monospace;overflow:hidden;height:100vh;display:flex;flex-direction:column}
+
+header{padding:1rem 2rem;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;background:var(--surface)}
+.status-pill{font-size:0.6rem; color:var(--text-dim); text-transform:uppercase; letter-spacing:1px}
+
+#voice-control-panel { display:flex; align-items:center; gap:15px; }
+.vocal-btn { background: transparent; border: 1px solid var(--border); color: var(--text-dim); padding: 6px 14px; border-radius: 20px; font-size: 0.75rem; cursor: pointer; transition: 0.3s; font-family: inherit; }
+.vocal-btn.active { border-color: var(--active-voice); color: var(--active-voice); box-shadow: 0 0 10px rgba(76, 175, 80, 0.3); }
+
+main{flex:1;display:flex;overflow:hidden}
+#chat-container{flex:1;display:flex;flex-direction:column;border-right:1px solid var(--border)}
+#chat-window{flex:1;overflow-y:auto;padding:2rem;display:flex;flex-direction:column;gap:1.2rem}
+.bubble{max-width:85%;padding:1rem;border-radius:2px;font-size:0.9rem;animation:fadeIn 0.3s ease forwards;line-height:1.5}
+.user{align-self:flex-end;background:var(--surface2);border:1px solid var(--border)}
+.bot{align-self:flex-start;border-left:2px solid var(--accent);padding-left:1rem;background:rgba(212,207,195,0.03)}
+
+#input-area{padding:1.5rem;background:var(--surface);border-top:1px solid var(--border);display:flex;gap:10px;align-items:center}
+input[type="text"]{flex:1;background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);padding:0.5rem;outline:none;font-family:inherit}
+
+#sidebar{width:300px;background:var(--surface);display:flex;flex-direction:column}
+.tabs{display:flex;border-bottom:1px solid var(--border)}
+.tab-btn{flex:1;padding:12px;border:none;background:transparent;color:var(--text-dim);cursor:pointer;font-size:0.65rem;text-transform:uppercase}
+.tab-btn.active{color:var(--text);border-bottom:2px solid var(--accent)}
+.tab-content{display:none;padding:1rem;flex:1;overflow-y:auto}
+.tab-content.active{display:block}
+button{background:var(--surface2);color:var(--text);border:1px solid var(--border);padding:0.5rem;cursor:pointer;font-size:0.7rem; font-family: inherit;}
+.img-preview{max-width:100%; border-radius:4px; margin-top:10px; border:1px solid var(--border)}
+@keyframes fadeIn{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
 </style>
 </head>
 <body>
-<div id="app">
-  <header>
-    <div class="wordmark">
-      RAVIA
-      <span id="status-badge" class="badge">no knowledge</span>
-      <span id="rag-badge" class="badge blue" style="display:none">RAG ready</span>
-      <span id="rnn-badge" class="badge gold" style="display:none">RNN trained</span>
-    </div>
-    <p class="sub">Retrieval Augmented Versatile Intelligent Assistant · created by Honey</p>
-    <div style="margin-top:.6rem;">
-      <button class="btn" onclick="promptForKey()" style="font-size:11px;padding:.35rem .85rem;" id="key-btn">Set Groq API Key</button>
-      <span id="key-status" style="font-size:11px;color:var(--text-hint);margin-left:.6rem;letter-spacing:.03em;"></span>
-    </div>
-  </header>
 
-  <div class="tabs">
-    <button class="tab active" onclick="switchTab('knowledge')">Knowledge</button>
-    <button class="tab" onclick="switchTab('train')">RNN Fallback</button>
-    <button class="tab" onclick="switchTab('chat')">Chat</button>
-    <button class="tab" onclick="switchTab('model')">Export</button>
-    <button class="tab" onclick="switchTab('embed')">Embed</button>
+<header>
+  <div>
+    <h1 style="font-size:1.2rem; letter-spacing: 2px;">RAVIA</h1>
+    <span id="mem-status" class="status-pill">Systems Active</span>
   </div>
-
-  <!-- KNOWLEDGE -->
-  <div id="tab-knowledge" class="panel active">
-    <div class="stat-grid">
-      <div class="stat"><div class="stat-val" id="s-articles">0</div><div class="stat-lbl">articles</div></div>
-      <div class="stat"><div class="stat-val" id="s-sentences">0</div><div class="stat-lbl">sentences</div></div>
-      <div class="stat"><div class="stat-val" id="s-vocab-tfidf">0</div><div class="stat-lbl">index terms</div></div>
-      <div class="stat"><div class="stat-val" id="s-size">0 KB</div><div class="stat-lbl">index size</div></div>
-    </div>
-    <div class="card">
-      <label>Quick-load — preset topic bundles</label>
-      <div class="topic-grid" id="preset-grid"></div>
-      <div id="fetch-status" style="font-size:11px;color:var(--text-hint);min-height:16px;margin-top:.4rem;letter-spacing:.03em;"></div>
-    </div>
-    <div class="card">
-      <label>Custom Wikipedia article</label>
-      <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
-        <input type="text" id="customTopic" placeholder="e.g. Quantum computing" style="flex:1;min-width:160px;">
-        <input type="number" id="customMax" value="80" min="10" max="300" style="width:70px;" title="Max sentences">
-        <button class="btn primary" id="customBtn" onclick="fetchCustom()">Add article</button>
-      </div>
-      <div id="custom-status" style="font-size:11px;color:var(--text-hint);min-height:16px;margin-top:.4rem;letter-spacing:.03em;"></div>
-    </div>
-    <div class="card">
-      <label>Knowledge base actions</label>
-      <div class="btn-row">
-        <button class="btn primary" onclick="buildIndex()">Build TF-IDF index</button>
-        <button class="btn" onclick="loadSeedKB()">Load offline seed KB</button>
-        <button class="btn" onclick="clearKnowledge()">Clear all</button>
-        <button class="btn" onclick="downloadKB()">Download KB</button>
-      </div>
-      <div id="index-status" style="font-size:11px;color:var(--text-hint);min-height:16px;margin-top:.4rem;letter-spacing:.03em;"></div>
-    </div>
+  
+  <div id="voice-control-panel">
+    <span id="mood-display" style="font-size:0.65rem; color:var(--accent)">Mood: Neutral</span>
+    <button id="voiceBtn" class="vocal-btn" onclick="toggleVoice()">VOICE: OFF</button>
   </div>
+</header>
 
-  <!-- RNN FALLBACK -->
-  <div id="tab-train" class="panel">
-    <div class="card">
-      <label>Fallback corpus — used when RAG finds no good match</label>
-      <textarea id="corpus" rows="7">Q: What is your name? | A: I'm RAVIA — your RAG-powered assistant! Ask me anything.
-Q: How are you? | A: Doing great, thanks for asking! What's on your mind?
-Q: What can you do? | A: I can answer questions across science, history, geography, math, and loads more — all powered by Wikipedia.
-Q: Who made you? | A: I was built by Honey using a Wikipedia knowledge base and a tiny char-level RNN, running entirely in your browser.
-Q: Thank you. | A: Anytime! Don't be a stranger.
-Q: Goodbye. | A: Later! Come back whenever you need something.
-Q: I don't understand. | A: No worries — let's slow it down. What part's confusing you?
-Q: Are you smart? | A: I'd like to think so! I've read quite a bit of Wikipedia, so ask me something and let's find out.</textarea>
-    </div>
-    <div class="card">
-      <div class="row3">
-        <div class="field"><label>Hidden size</label><input type="number" id="hiddenSize" value="64" min="16" max="256"></div>
-        <div class="field"><label>Learning rate</label><input type="number" id="lr" value="0.01" step="0.001" min="0.0001"></div>
-        <div class="field"><label>Epochs</label><input type="number" id="epochs" value="400" min="10" max="3000"></div>
-      </div>
-      <div class="btn-row">
-        <button class="btn primary" id="trainBtn" onclick="startTraining()">Train fallback RNN</button>
-        <button class="btn" id="stopBtn" onclick="stopTraining()" disabled>Stop</button>
-        <span class="epoch-info" id="epoch-info"></span>
-      </div>
-      <div class="progress-bar"><div class="progress-fill" id="progress"></div></div>
-      <div id="log">Train the RNN after loading your knowledge base.</div>
-    </div>
-  </div>
-
-  <!-- CHAT -->
-  <div id="tab-chat" class="panel">
-    <div class="card" style="margin-bottom:.85rem;">
-      <div class="row2">
-        <div>
-          <label>creativity / temperature</label>
-          <div class="slider-row">
-            <span style="font-size:10px;color:var(--text-hint);">safe</span>
-            <input type="range" id="tempSlider" min="0.3" max="1.4" step="0.05" value="0.8" oninput="document.getElementById('tempVal').textContent=parseFloat(this.value).toFixed(2)">
-            <span style="font-size:10px;color:var(--text-hint);">wild</span>
-            <span class="slider-label" id="tempVal">0.80</span>
-          </div>
-          <div class="hint">affects RNN fallback only · RAG answers are always factual</div>
-        </div>
-        <div>
-          <label>RAG confidence threshold</label>
-          <div class="slider-row">
-            <span style="font-size:10px;color:var(--text-hint);">low</span>
-            <input type="range" id="ragThresh" min="0.05" max="0.6" step="0.01" value="0.12" oninput="document.getElementById('ragVal').textContent=parseFloat(this.value).toFixed(2)">
-            <span style="font-size:10px;color:var(--text-hint);">high</span>
-            <span class="slider-label" id="ragVal">0.12</span>
-          </div>
-          <div class="hint">lower = answers more questions · higher = only very confident answers</div>
-        </div>
-      </div>
-    </div>
+<main>
+  <div id="chat-container">
     <div id="chat-window">
-      <div class="msg bot">
-        <span class="name">RAVIA</span>
-        <div class="bubble">Hey Honey! I'm RAVIA — Retrieval Augmented Versatile Intelligent Assistant. I'm all loaded up and ready to go. Ask me anything!</div>
-      </div>
+      <div class="bubble bot">Welcome back, Honey. Make sure to click <b>VOICE: OFF</b> to turn it <b>ON</b> if you want me to speak!</div>
     </div>
-    <div class="chat-input-row">
-      <input type="text" id="userInput" placeholder="Ask anything, or: /wiki cats  /img dogs  /table cat vs dog" onkeydown="if(event.key==='Enter')sendMsg()">
-      <label class="btn" title="Upload image" style="cursor:pointer;display:flex;align-items:center;gap:.3rem;padding:.5rem .75rem;">
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
-        <input type="file" id="imgInput" accept="image/*" style="display:none" onchange="handleImageUpload(this)">
-      </label>
-      <button class="btn primary" onclick="sendMsg()">Send</button>
-    </div>
-    <div style="font-size:10px;color:var(--text-hint);margin-top:.3rem;letter-spacing:.03em;">
-      <span style="color:var(--accent)">/wiki</span> article &nbsp;·&nbsp;
-      <span style="color:var(--accent)">/img</span> images &nbsp;·&nbsp;
-      <span style="color:var(--accent)">/google</span> search &nbsp;·&nbsp;
-      <span style="color:var(--accent)">/table</span> compare &nbsp;·&nbsp;
-      <span style="color:var(--accent)">/venn</span> overlap &nbsp;·&nbsp;
-      <span style="color:var(--accent)">/export</span> save chat
-    </div>
-    <div id="debug-line" style="font-size:10px;color:var(--text-hint);letter-spacing:.04em;margin-top:.3rem;min-height:14px;"></div>
-    <div id="mobilenet-status" style="font-size:10px;color:var(--text-hint);letter-spacing:.04em;margin-top:.2rem;min-height:14px;"></div>
-  </div>
-
-  <!-- EXPORT -->
-  <div id="tab-model" class="panel">
-    <div class="card">
-      <label>Export full knowledge base + RNN weights (JSON)</label>
-      <textarea id="exportJson" rows="5" placeholder="Use Export below to generate the save file."></textarea>
-      <div class="btn-row" style="margin-top:.75rem;">
-        <button class="btn primary" onclick="exportAll()">Export everything</button>
-        <button class="btn" onclick="importAll()">Import save</button>
-        <button class="btn" onclick="downloadAll()">Download .json</button>
-      </div>
-    </div>
-    <div class="card">
-      <label>System summary</label>
-      <div class="arch-box" id="arch-summary">No knowledge loaded yet.</div>
+    <div id="input-area">
+      <input type="file" id="imgUpload" hidden accept="image/*" onchange="analyzeImage(event)">
+      <button onclick="document.getElementById('imgUpload').click()" style="border-radius: 50%; width: 40px; height: 40px;">📷</button>
+      <input type="text" id="userInput" placeholder="Ask me or use /wiki..." onkeydown="if(event.key==='Enter')sendMsg()">
+      <button onclick="sendMsg()" style="padding: 0 20px;">SEND</button>
     </div>
   </div>
 
-  <!-- EMBED -->
-  <div id="tab-embed" class="panel">
-    <div class="card">
-      <label>iframe embed</label>
-      <div class="snippet-box">&lt;iframe
-  src="https://honey0666.github.io/ravia"
-  width="100%"
-  height="720"
-  style="border:none; border-radius:14px;"
-  allow="clipboard-write"
-  title="RAVIA"
-&gt;&lt;/iframe&gt;</div>
+  <aside id="sidebar">
+    <div class="tabs">
+      <button class="tab-btn active" onclick="openTab('knowledge')">Knowledge</button>
+      <button class="tab-btn" onclick="openTab('rnn-tab')">Brain</button>
     </div>
-    <div class="card">
-      <label>Floating chat bubble</label>
-      <div class="snippet-box">&lt;script&gt;
-(function(){
-  var btn=document.createElement('button');
-  btn.textContent='Chat with RAVIA';
-  btn.style.cssText='position:fixed;bottom:24px;right:24px;z-index:9999;'
-    +'padding:12px 22px;background:#c8b97a;color:#0f0f0e;border:none;'
-    +'border-radius:32px;font-family:monospace;font-size:14px;cursor:pointer;';
-  var frame=document.createElement('iframe');
-  frame.src='https://honey0666.github.io/ravia';
-  frame.style.cssText='position:fixed;bottom:76px;right:24px;z-index:9998;'
-    +'width:420px;height:640px;border:none;border-radius:16px;'
-    +'box-shadow:0 8px 40px rgba(0,0,0,.4);display:none;';
-  btn.onclick=function(){frame.style.display=frame.style.display==='none'?'block':'none';};
-  document.body.appendChild(btn);
-  document.body.appendChild(frame);
-})();
-&lt;/script&gt;</div>
+
+    <div id="knowledge" class="tab-content active">
+        <p style="font-size:0.7rem; color:var(--text-dim); margin-bottom:10px">Wikipedia Presets:</p>
+        <div id="preset-container" style="display:grid; grid-template-columns:1fr 1fr; gap:5px"></div>
+        <hr style="margin: 20px 0; border: 0; border-top: 1px solid var(--border);">
+        <p style="font-size:0.7rem; color:var(--text-dim); margin-bottom:10px">Remote File (URL/Google Drive):</p>
+        <input type="text" id="fileUrl" placeholder="https://..." style="width:100%; padding:5px; background:black; color:white; border:1px solid var(--border); margin-bottom:5px;">
+        <button onclick="fetchRemoteFile()" style="width:100%">Load File</button>
+        <button onclick="clearMemory()" style="width:100%; margin-top:20px; color:#ff5f5f; border-color:#442222">Wipe All Memory</button>
     </div>
-    <div class="card">
-      <label>Free hosting</label>
-      <div class="arch-box" style="line-height:2.2">GitHub Pages  — honey0666.github.io/ravia
-Netlify       — netlify.com/drop
-Tiiny.host    — tiiny.host</div>
+
+    <div id="rnn-tab" class="tab-content">
+        <textarea id="corpus" style="width:100%; height:250px; background:#000; color:#0f0; font-family:monospace; font-size:0.65rem; border:1px solid var(--border); padding:10px">
+Q: Hello | A: Hi Honey! Ready to explore?
+Q: Who are you? | A: I am RAVIA, your custom intelligence.
+Q: How are you? | A: I'm feeling optimized and witty!
+Q: Can you help me? | A: Always. What's on your mind?
+        </textarea>
+        <button onclick="trainRNN()" style="width:100%; margin-top:10px">Update Logic</button>
     </div>
-  </div>
-</div>
+  </aside>
+</main>
 
 <script>
-// ─── Groq API config — key stored in localStorage, never in code ──────────────
-const GROQ_MODEL = 'llama3-8b-8192';
-const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions';
-const GROQ_KEY_STORAGE = 'ravia_groq_key';
-
-function getGroqKey(){ return localStorage.getItem(GROQ_KEY_STORAGE)||''; }
-function setGroqKey(k){ localStorage.setItem(GROQ_KEY_STORAGE,k.trim()); }
-function clearGroqKey(){ localStorage.removeItem(GROQ_KEY_STORAGE); }
-
-function promptForKey(){
-  const existing=getGroqKey();
-  const k=window.prompt(
-    'Enter your Groq API key to enable AI features.\n\nGet one free at console.groq.com (no card needed).\n\nYour key is stored only in your browser — never uploaded anywhere.'
-    ,existing||''
-  );
-  if(k===null) return; // user cancelled
-  if(k.trim()){
-    setGroqKey(k.trim());
-    alert('Key saved! RAVIA will now use Groq for AI features.');
-  } else {
-    clearGroqKey();
-    alert('Key cleared. AI features will use built-in fallback only.');
-  }
-}
-
-async function groqChat(systemPrompt, userMsg, maxTokens) {
-  const key = getGroqKey();
-  if(!key) return null; // no key — silently fall through to offline fallback
-  try {
-    const res = await fetch(GROQ_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer ' + key
-      },
-      body: JSON.stringify({
-        model: GROQ_MODEL,
-        max_tokens: maxTokens || 120,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userMsg }
-        ]
-      })
-    });
-    if (!res.ok) return null;
-    const data = await res.json();
-    return data.choices && data.choices[0] ? data.choices[0].message.content.trim() : null;
-  } catch(e) { return null; }
-}
-
-// ─── State ────────────────────────────────────────────────────────────────────
-let sentences=[], tfidfIndex=null, idf={}, rnn=null, trainData=[], stopFlag=false, charToIdx={}, idxToChar={};
-
+// ─── STATE & PERSISTENCE ──────────────────────────────────────────────────
 const BOT_NAME = 'RAVIA';
 const USER_NAME = 'Honey';
-const CREATOR = 'Honey';
+let sentences = JSON.parse(localStorage.getItem('ravia_kb')) || [];
+let rnn = null, visionModel = null, voiceEnabled = false;
+let charToIdx = {}, idxToChar = {};
 
-const GROQ_SYSTEM = 'You are ' + BOT_NAME + ' (Retrieval Augmented Versatile Intelligent Assistant), a casual friendly AI assistant created by ' + CREATOR + '. You address the user as ' + USER_NAME + '. Keep replies under 30 words, casual tone, use contractions, be warm and a little witty. Never break character.';
-
-const PRESETS = {
-  'Science & Tech': ['Artificial intelligence','Machine learning','Quantum mechanics','DNA','Internet','Electric current','Photosynthesis','Evolution','Relativity','Computer'],
-  'History': ['World War II','Ancient Rome','French Revolution','Renaissance','Mongol Empire','Industrial Revolution','Cold War','Ancient Egypt','Byzantine Empire','Ming dynasty'],
-  'Geography': ['Amazon River','Himalayas','Atlantic Ocean','Sahara','Antarctica','Europe','Pacific Ocean','Nile','Andes','Great Barrier Reef'],
-  'Math & Logic': ['Mathematics','Prime number','Calculus','Statistics','Logic','Geometry','Algebra','Set theory','Number theory','Probability'],
-  'General Knowledge': ['Philosophy','Democracy','Economy','Language','Music','Literature','Agriculture','Medicine','Architecture','Sports']
-};
-
-// ─── Tabs ─────────────────────────────────────────────────────────────────────
-const TAB_NAMES = ['knowledge','train','chat','model','embed'];
-function switchTab(t) {
-  TAB_NAMES.forEach((n,i) => {
-    document.querySelectorAll('.tab')[i].classList.toggle('active', n===t);
-    document.getElementById('tab-'+n).classList.toggle('active', n===t);
-  });
-}
-
-function log(msg) { const el=document.getElementById('log'); el.textContent+='\n'+msg; el.scrollTop=el.scrollHeight; }
-
-// ─── Preset grid ──────────────────────────────────────────────────────────────
-function initPresets() {
-  const grid = document.getElementById('preset-grid');
-  Object.keys(PRESETS).forEach(domain => {
-    const btn = document.createElement('button');
-    btn.className = 'topic-btn';
-    btn.id = 'preset-'+domain;
-    btn.innerHTML = '<span class="dot"></span>'+domain+' ('+PRESETS[domain].length+')';
-    btn.onclick = () => fetchDomain(domain, btn);
-    grid.appendChild(btn);
-  });
-}
-
-async function fetchDomain(domain, btn) {
-  if (btn.classList.contains('fetching')) return;
-  btn.classList.add('fetching');
-  btn.querySelector('.dot').style.background = 'var(--text-hint)';
-  document.getElementById('fetch-status').textContent = 'Fetching '+domain+'...';
-  let done = 0;
-  for (const title of PRESETS[domain]) {
-    await fetchArticle(title, 60);
-    done++;
-    document.getElementById('fetch-status').textContent = domain+': '+done+'/'+PRESETS[domain].length+' articles loaded';
-  }
-  btn.classList.remove('fetching');
-  btn.classList.add('fetched');
-  document.getElementById('fetch-status').textContent = domain+' loaded — '+sentences.length+' total sentences.';
-  updateKBStats();
-}
-
-async function fetchCustom() {
-  const topic = document.getElementById('customTopic').value.trim();
-  if (!topic) { alert('Enter a topic first.'); return; }
-  const max = parseInt(document.getElementById('customMax').value) || 80;
-  const btn = document.getElementById('customBtn');
-  const status = document.getElementById('custom-status');
-  btn.disabled = true; status.textContent = 'Fetching...';
-  const n = await fetchArticle(topic, max);
-  status.textContent = n ? 'Added '+n+' sentences from "'+topic+'".' : 'Article not found.';
-  btn.disabled = false;
-  updateKBStats();
-}
-
-async function fetchArticle(title, maxSents) {
-  try {
-    const url = 'https://en.wikipedia.org/w/api.php?action=query&titles='+encodeURIComponent(title)+'&prop=extracts&explaintext=true&format=json&origin=*';
-    const res = await fetch(url);
-    if (!res.ok) return 0;
-    const data = await res.json();
-    const page = Object.values(data.query.pages)[0];
-    if (page.missing !== undefined) return 0;
-    const raw = (page.extract||'').split(/\n+/).filter(p=>!p.match(/^={2,}/)).join(' ');
-    const sents = raw.split(/(?<=[.!?])\s+/).map(s=>s.trim()).filter(s=>s.length>50&&s.length<300&&!/^\d/.test(s)&&!/\[/.test(s)&&!/^See also/.test(s));
-    sents.slice(0, maxSents).forEach(s => sentences.push({text:s, source:page.title}));
-    return Math.min(sents.length, maxSents);
-  } catch(e) { return 0; }
-}
-
-function updateKBStats() {
-  document.getElementById('s-articles').textContent = [...new Set(sentences.map(s=>s.source))].length;
-  document.getElementById('s-sentences').textContent = sentences.length;
-  if (tfidfIndex) {
-    document.getElementById('s-vocab-tfidf').textContent = Object.keys(idf).length;
-    const kb = JSON.stringify({sentences,idf,tfidfIndex}).length;
-    document.getElementById('s-size').textContent = kb>1048576 ? (kb/1048576).toFixed(1)+' MB' : (kb/1024).toFixed(0)+' KB';
-  }
-  updateArchSummary();
-}
-
-function clearKnowledge() {
-  if (!confirm('Clear all loaded sentences and index?')) return;
-  sentences=[]; tfidfIndex=null; idf={};
-  updateKBStats();
-  document.getElementById('s-vocab-tfidf').textContent='0';
-  document.getElementById('s-size').textContent='0 KB';
-  document.getElementById('rag-badge').style.display='none';
-  document.getElementById('status-badge').textContent='no knowledge';
-  document.getElementById('status-badge').className='badge';
-  document.querySelectorAll('.topic-btn').forEach(b=>b.classList.remove('fetched','fetching'));
-}
-
-// ─── TF-IDF ───────────────────────────────────────────────────────────────────
-function tokenize(text) {
-  return text.toLowerCase().replace(/[^a-z0-9\s]/g,' ').split(/\s+/).filter(w=>w.length>2&&!STOPWORDS.has(w));
-}
-
-function buildIndex() {
-  if (!sentences.length) { document.getElementById('index-status').textContent='No sentences loaded yet.'; return; }
-  document.getElementById('index-status').textContent='Building TF-IDF index...';
-  const N = sentences.length;
-  const df = {};
-  const tokenized = sentences.map(s => {
-    const toks = tokenize(s.text);
-    new Set(toks).forEach(t => { df[t]=(df[t]||0)+1; });
-    return toks;
-  });
-  idf = {};
-  Object.keys(df).forEach(t => { idf[t]=Math.log((N+1)/(df[t]+1))+1; });
-  tfidfIndex = tokenized.map(toks => {
-    const tf={};
-    toks.forEach(t=>{tf[t]=(tf[t]||0)+1;});
-    const vec={};
-    Object.keys(tf).forEach(t=>{if(idf[t])vec[t]=(tf[t]/toks.length)*idf[t];});
-    return vec;
-  });
-  const kb = JSON.stringify({sentences,idf,tfidfIndex}).length;
-  document.getElementById('s-vocab-tfidf').textContent=Object.keys(idf).length;
-  document.getElementById('s-size').textContent=kb>1048576?(kb/1048576).toFixed(1)+' MB':(kb/1024).toFixed(0)+' KB';
-  document.getElementById('index-status').textContent='Index built — '+Object.keys(idf).length+' terms across '+N+' sentences. Ready to chat!';
-  document.getElementById('rag-badge').style.display='inline-block';
-  document.getElementById('status-badge').textContent='ready';
-  document.getElementById('status-badge').className='badge green';
-  updateArchSummary();
-}
-
-function queryTFIDF(query, topK=3) {
-  if (!tfidfIndex||!tfidfIndex.length) return [];
-  const toks=tokenize(query), qvec={};
-  toks.forEach(t=>{if(idf[t])qvec[t]=(qvec[t]||0)+idf[t];});
-  const qnorm=Math.sqrt(Object.values(qvec).reduce((a,v)=>a+v*v,0))||1;
-  return tfidfIndex.map((dvec,i)=>{
-    let dot=0;
-    Object.keys(qvec).forEach(t=>{if(dvec[t])dot+=qvec[t]*dvec[t];});
-    const dnorm=Math.sqrt(Object.values(dvec).reduce((a,v)=>a+v*v,0))||1;
-    return {score:dot/(qnorm*dnorm), idx:i};
-  }).sort((a,b)=>b.score-a.score).slice(0,topK);
-}
-
-// ─── char-RNN ─────────────────────────────────────────────────────────────────
-class CharRNN {
-  constructor(V,H) {
-    this.V=V; this.H=H;
-    const r=()=>(Math.random()-.5)*0.1;
-    const m=(r2,c)=>Array.from({length:r2},()=>Array.from({length:c},r));
-    const v=n=>Array(n).fill(0);
-    this.Wx=m(H,V); this.Wh=m(H,H); this.bh=v(H); this.Wy=m(V,H); this.by=v(V);
-  }
-  softmax(a){const mx=Math.max(...a),e=a.map(x=>Math.exp(x-mx)),s=e.reduce((a,b)=>a+b,0);return e.map(x=>x/s);}
-  forward(inp,hp){
-    const hs=[],xs=[],ps=[];let h=[...hp];
-    for(let t=0;t<inp.length;t++){
-      const x=Array(this.V).fill(0);x[inp[t]]=1;xs.push(x);
-      const hn=Array(this.H).fill(0);
-      for(let i=0;i<this.H;i++){let s=this.bh[i];for(let j=0;j<this.V;j++)s+=this.Wx[i][j]*x[j];for(let j=0;j<this.H;j++)s+=this.Wh[i][j]*h[j];hn[i]=Math.tanh(s);}
-      h=[...hn];hs.push([...h]);
-      const y=Array(this.V).fill(0);
-      for(let i=0;i<this.V;i++){y[i]=this.by[i];for(let j=0;j<this.H;j++)y[i]+=this.Wy[i][j]*h[j];}
-      ps.push(this.softmax(y));
+// ─── VOICE SYSTEM ───────────────────────────────────────────────────────────
+function toggleVoice() {
+    voiceEnabled = !voiceEnabled;
+    const btn = document.getElementById('voiceBtn');
+    if (voiceEnabled) {
+        btn.classList.add('active');
+        btn.textContent = "VOICE: ON";
+        speak("Voice systems online. It's good to finally talk to you, Honey!");
+    } else {
+        btn.classList.remove('active');
+        btn.textContent = "VOICE: OFF";
+        window.speechSynthesis.cancel();
     }
-    return{hs,xs,ps,lastH:h};
-  }
-  backward(inp,tgt,hs,xs,ps,hp,lr){
-    const dWx=this.Wx.map(r=>r.map(()=>0)),dWh=this.Wh.map(r=>r.map(()=>0)),dWy=this.Wy.map(r=>r.map(()=>0));
-    const dbh=Array(this.H).fill(0),dby=Array(this.V).fill(0);
-    let dhn=Array(this.H).fill(0),loss=0;
-    const clip=v=>Math.max(-5,Math.min(5,v));
-    for(let t=inp.length-1;t>=0;t--){
-      const dy=[...ps[t]];dy[tgt[t]]-=1;
-      loss-=Math.log(ps[t][tgt[t]]+1e-9);
-      for(let i=0;i<this.V;i++){dby[i]+=dy[i];for(let j=0;j<this.H;j++)dWy[i][j]+=dy[i]*hs[t][j];}
-      const dh=Array(this.H).fill(0);
-      for(let i=0;i<this.H;i++){for(let j=0;j<this.V;j++)dh[i]+=this.Wy[j][i]*dy[j];dh[i]+=dhn[i];}
-      const dr=dh.map((v,i)=>v*(1-hs[t][i]*hs[t][i]));
-      for(let i=0;i<this.H;i++){dbh[i]+=dr[i];for(let j=0;j<this.V;j++)dWx[i][j]+=dr[i]*xs[t][j];const hp2=t>0?hs[t-1]:hp;for(let j=0;j<this.H;j++)dWh[i][j]+=dr[i]*hp2[j];}
-      dhn=Array(this.H).fill(0);
-      for(let j=0;j<this.H;j++)for(let i=0;i<this.H;i++)dhn[j]+=this.Wh[i][j]*dr[i];
+}
+
+function speak(text, mood = "Neutral") {
+    if (!voiceEnabled || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel(); 
+    const utterance = new SpeechSynthesisUtterance(text);
+    if (mood === "Cheerful") { utterance.pitch = 1.3; utterance.rate = 1.1; }
+    else if (mood === "Empathetic") { utterance.pitch = 0.8; utterance.rate = 0.85; }
+    else { utterance.pitch = 1.0; utterance.rate = 1.0; }
+    window.speechSynthesis.speak(utterance);
+}
+
+// ─── CHAT ENGINE ────────────────────────────────────────────────────────────
+function analyzeSentiment(text) {
+    const t = text.toLowerCase();
+    if (t.match(/sad|lonely|hurt|bad/)) return { mood: "Empathetic", tone: "I'm so sorry, Honey. " };
+    if (t.match(/happy|good|great|awesome/)) return { mood: "Cheerful", tone: "That's wonderful! " };
+    return { mood: "Neutral", tone: "" };
+}
+
+async function sendMsg() {
+    const input = document.getElementById('userInput');
+    const text = input.value.trim();
+    if (!text) return;
+
+    const sentiment = analyzeSentiment(text);
+    document.getElementById('mood-display').textContent = `Mood: ${sentiment.mood}`;
+    addMessage(USER_NAME, text, 'user');
+    input.value = '';
+
+    // Identity/Fish Fix
+    if (text.toLowerCase().includes("fish") && text.toLowerCase().includes("what")) {
+        const reply = "A fish is an aquatic creature with gills. You, Honey, are a human. Let's not get our species mixed up!";
+        addMessage(BOT_NAME, reply, "bot");
+        speak(reply, sentiment.mood);
+        return;
     }
-    for(let i=0;i<this.H;i++){this.bh[i]-=lr*clip(dbh[i]);for(let j=0;j<this.V;j++)this.Wx[i][j]-=lr*clip(dWx[i][j]);for(let j=0;j<this.H;j++)this.Wh[i][j]-=lr*clip(dWh[i][j]);}
-    for(let i=0;i<this.V;i++){this.by[i]-=lr*clip(dby[i]);for(let j=0;j<this.H;j++)this.Wy[i][j]-=lr*clip(dWy[i][j]);}
-    return loss/inp.length;
-  }
-  generate(seed,maxLen=100){
-    const temp=parseFloat(document.getElementById('tempSlider')?.value||'0.8');
-    let h=Array(this.H).fill(0);
-    const{lastH}=this.forward(seed,h);h=lastH;
-    let idx=seed[seed.length-1],out='';
-    for(let i=0;i<maxLen;i++){
-      const x=Array(this.V).fill(0);x[idx]=1;
-      const hn=Array(this.H).fill(0);
-      for(let k=0;k<this.H;k++){let s=this.bh[k];for(let j=0;j<this.V;j++)s+=this.Wx[k][j]*x[j];for(let j=0;j<this.H;j++)s+=this.Wh[k][j]*h[j];hn[k]=Math.tanh(s);}
-      h=[...hn];
-      const y=Array(this.V).fill(0);
-      for(let k=0;k<this.V;k++){y[k]=this.by[k];for(let j=0;j<this.H;j++)y[k]+=this.Wy[k][j]*h[j];}
-      const ps=this.softmax(y.map(v=>v/temp));
-      let r=Math.random(),cum=0;
-      for(let k=0;k<this.V;k++){cum+=ps[k];if(cum>r){idx=k;break;}}
-      const ch=idxToChar[idx];if(ch==='|')break;out+=ch;
+
+    // Wiki Command
+    if (text.startsWith('/wiki ')) {
+        await fetchWiki(text.replace('/wiki ', ''));
+        const r = "I've indexed that Wikipedia entry into my memory.";
+        addMessage(BOT_NAME, r, "bot");
+        speak(r);
+        return;
     }
-    return out.replace(/^\s*A:\s*/i,'').trim();
-  }
-  params(){return this.H*this.V+this.H*this.H+this.H+this.V*this.H+this.V;}
-  export(){return{V:this.V,H:this.H,Wx:this.Wx,Wh:this.Wh,bh:this.bh,Wy:this.Wy,by:this.by};}
-  static import(d){const m=new CharRNN(d.V,d.H);Object.assign(m,{Wx:d.Wx,Wh:d.Wh,bh:d.bh,Wy:d.Wy,by:d.by});return m;}
-}
 
-function buildVocab(text){const chars=[...new Set(text)].sort();charToIdx={};idxToChar={};chars.forEach((c,i)=>{charToIdx[c]=i;idxToChar[i]=c;});return chars.length;}
-function encode(text){return[...text].map(c=>charToIdx[c]??0);}
-function parseCorpus(raw){return raw.split('\n').map(l=>l.trim()).filter(l=>l.includes('|')).map(l=>{const[q,a]=l.split('|');return{q:(q||'').replace(/^Q:\s*/i,'').trim(),a:(a||'').replace(/^A:\s*/i,'').trim()};});}
-
-async function startTraining(){
-  const pairs=parseCorpus(document.getElementById('corpus').value.trim());
-  if(!pairs.length){log('No valid Q|A pairs found.');return;}
-  const fullText=pairs.map(p=>'Q: '+p.q+' | A: '+p.a).join('\n')+'\n';
-  const vocabSize=buildVocab(fullText);
-  const H=parseInt(document.getElementById('hiddenSize').value)||64;
-  const lr=parseFloat(document.getElementById('lr').value)||0.01;
-  const epochs=parseInt(document.getElementById('epochs').value)||400;
-  rnn=new CharRNN(vocabSize,H);trainData=pairs;stopFlag=false;
-  document.getElementById('trainBtn').disabled=true;
-  document.getElementById('stopBtn').disabled=false;
-  log('Vocab: '+vocabSize+' | Params: '+rnn.params()+' | Epochs: '+epochs);
-  const seqs=pairs.map(p=>encode('Q: '+p.q+' | A: '+p.a));
-  let lastLoss=0;
-  for(let ep=0;ep<epochs;ep++){
-    if(stopFlag)break;
-    let tl=0;
-    for(const seq of seqs){
-      if(seq.length<2)continue;
-      const h0=Array(H).fill(0);
-      const{hs,xs,ps}=rnn.forward(seq.slice(0,-1),h0);
-      tl+=rnn.backward(seq.slice(0,-1),seq.slice(1),hs,xs,ps,h0,lr);
+    // RAG/RNN Logic
+    const search = queryRAG(text);
+    let reply = "";
+    if (search.length > 0) {
+        reply = (sentiment.tone + sentences[search[0].idx].text).trim();
+        addMessage(BOT_NAME, reply, "bot", sentences[search[0].idx].source);
+    } else if (rnn) {
+        const seed = `Q: ${text} | A: `.split('').map(c => charToIdx[c] || 0);
+        reply = (sentiment.tone + rnn.generate(seed)).trim();
+        addMessage(BOT_NAME, reply, "bot");
+    } else {
+        reply = "I'm still learning. Try the Fact tab or /wiki!";
+        addMessage(BOT_NAME, reply, "bot");
     }
-    lastLoss=tl/seqs.length;
-    document.getElementById('progress').style.width=((ep+1)/epochs*100).toFixed(1)+'%';
-    document.getElementById('epoch-info').textContent='Epoch '+(ep+1)+'/'+epochs+' · loss: '+lastLoss.toFixed(4);
-    if((ep+1)%50===0||ep===epochs-1)log('['+(ep+1)+'/'+epochs+'] loss: '+lastLoss.toFixed(4));
-    if((ep+1)%5===0)await new Promise(r=>setTimeout(r,0));
-  }
-  document.getElementById('trainBtn').disabled=false;
-  document.getElementById('stopBtn').disabled=true;
-  document.getElementById('rnn-badge').style.display='inline-block';
-  updateArchSummary();
-  log('RNN training complete.');
-}
-function stopTraining(){stopFlag=true;}
-
-// ─── Variant picker ───────────────────────────────────────────────────────────
-const lastUsed={};
-function pickVariant(key,answers){
-  if(!Array.isArray(answers)||!answers.length)return null;
-  if(answers.length===1)return answers[0];
-  const last=lastUsed[key]??-1;
-  const pool=answers.map((_,i)=>i).filter(i=>i!==last);
-  const idx=pool[Math.floor(Math.random()*pool.length)];
-  lastUsed[key]=idx;
-  return answers[idx];
+    speak(reply, sentiment.mood);
 }
 
-// ─── RAG wrappers ─────────────────────────────────────────────────────────────
-const RAG_PREFIXES=['So basically — ','Here\'s what I know: ','Good question! ','Right, so — ','Honestly, ','Here\'s the thing: ','From what I know — ','Okay so — ','Yeah! ','Sure — ','Interesting one — ',''];
-const RAG_SUFFIXES=[' Pretty interesting, right?',' Hope that helps!',' Does that make sense?',' Anything else?',' Let me know if you want more.',' That\'s the gist of it!','','','',''];
-function wrapRAG(text){return RAG_PREFIXES[Math.floor(Math.random()*RAG_PREFIXES.length)]+text+RAG_SUFFIXES[Math.floor(Math.random()*RAG_SUFFIXES.length)];}
-
-// ─── Reward & correction system ───────────────────────────────────────────────
-let lastBotMsg=null, lastUserQuery=null, retryCount=0;
-
-const PRAISE_PATTERN=/\b(amazing|awesome|great|perfect|correct|right|exactly|brilliant|excellent|wonderful|well done|good job|nailed it|spot on|nice one|wow|omg|love you|thanks|thank you|good one)\b|\bthat (is|was) (good|great|perfect|right|correct|amazing|helpful|nice|cool)\b|\byou (are|re) (the best|amazing|awesome|great)\b/i;
-const CORRECTION_PATTERN=/\b(wrong|incorrect|nope|try again|you misunderstood|bad answer|rephrase|redo|retry)\b|\bnot (right|correct|helpful|what i asked|what i wanted)\b|\bthat (is|was) not\b|\bdifferent (answer|response)\b|\banother (answer|response|try)\b|\bsomething else\b/i;
-
-function detectFeedback(msg){
-  if(PRAISE_PATTERN.test(msg))return'praise';
-  if(CORRECTION_PATTERN.test(msg))return'correction';
-  return null;
+// ─── VISION & FILES ─────────────────────────────────────────────────────────
+async function analyzeImage(event) {
+    if (!visionModel) { addMessage("System", "Loading Vision...", "bot"); visionModel = await mobilenet.load(); }
+    const file = event.target.files[0];
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+        const img = new Image(); img.src = e.target.result;
+        img.onload = async () => {
+            const res = await visionModel.classify(img);
+            const desc = `I believe this is a ${res[0].className}, Honey.`;
+            addMessage(USER_NAME, `<img src="${img.src}" class="img-preview">`, "user");
+            addMessage(BOT_NAME, desc, "bot");
+            speak(desc);
+        };
+    };
+    reader.readAsDataURL(file);
 }
 
-// ─── Core respond ─────────────────────────────────────────────────────────────
-function respond(msg){
-  const threshold=parseFloat(document.getElementById('ragThresh')?.value||'0.12');
-  const dbg=document.getElementById('debug-line');
-  const msgClean=msg.toLowerCase().replace(/[^a-z0-9\s]/g,' ').replace(/\b(ravia|ravi)\b/gi,'').replace(/\s+/g,' ').trim();
-
-  const factualPattern=/^(what (is|are|was|were)|explain|describe|tell me (about|what)|how (does|do|did|is|are)|why (is|are|does|do)|who (is|was|are|were)|when (is|was|did)|where (is|was)|define|what.*(mean|definition))/i;
-  const myNameQuery=/\b(my|your)\s+name\b/i.test(msg)||/what.*(call|know)\s+(me|you)\b/i.test(msg);
-  const isFactual=factualPattern.test(msg.trim())&&!myNameQuery;
-
-  if(!isFactual&&trainData.length){
-    const grouped={};
-    trainData.forEach(p=>{
-      const qkey=p.q.toLowerCase().replace(/[^a-z0-9\s]/g,' ').trim();
-      if(!grouped[qkey])grouped[qkey]=[];
-      grouped[qkey].push(p.a);
-    });
-    const scores=Object.keys(grouped).map(qkey=>{
-      const wa=new Set(msgClean.split(/\s+/)),wb=new Set(qkey.split(/\s+/));
-      let n=0;wa.forEach(w=>{if(wb.has(w))n++;});
-      return{score:n/(Math.max(wa.size,wb.size)||1),qkey};
-    }).filter(x=>x.score>0).sort((a,b)=>b.score-a.score);
-    const wordCount=msgClean.split(/\s+/).filter(Boolean).length;
-    const personaThreshold=wordCount<=3?0.2:0.3;
-    if(scores.length&&scores[0].score>=personaThreshold){
-      const ans=pickVariant(scores[0].qkey,grouped[scores[0].qkey]);
-      if(dbg)dbg.textContent='Persona match: "'+scores[0].qkey+'" score '+scores[0].score.toFixed(2);
-      return{text:ans,source:'persona',async:false};
+async function fetchRemoteFile() {
+    let url = document.getElementById('fileUrl').value;
+    if (url.includes('drive.google.com')) {
+        const id = url.split('/d/')[1].split('/')[0];
+        url = `https://docs.google.com/uc?export=download&id=${id}`;
     }
-  }
+    try {
+        const res = await fetch(url).then(r => r.text());
+        res.split(/[.!?]\s+/).forEach(s => { if(s.length > 20) sentences.push({text:s.trim(), source:"File"}); });
+        localStorage.setItem('ravia_kb', JSON.stringify(sentences));
+        updateKBStats();
+        addMessage(BOT_NAME, "File content added to memory.", "bot");
+    } catch(e) { addMessage("System", "Error loading file. Check CORS/Permissions.", "bot"); }
+}
 
-  const msgForRAG=msg.replace(/\b(ravia|ravi)\b/gi,'').replace(/\s+/g,' ').trim();
-  if(tfidfIndex&&tfidfIndex.length){
-    const results=queryTFIDF(msgForRAG||msg,3);
-    const best=results[0];
-    if(dbg)dbg.textContent='RAG: '+(best?'top score '+best.score.toFixed(3)+' (threshold '+threshold+')':'no results');
-    if(best&&best.score>threshold){
-      const sent=sentences[best.idx];
-      let answer=sent.text;
-      if(results[1]&&results[1].score>threshold*0.7&&sentences[results[1].idx].source===sent.source)answer+=' '+sentences[results[1].idx].text;
-      return{text:wrapRAG(answer),source:sent.source,async:false};
+async function fetchWiki(topic) {
+    const url = `https://en.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&exintro=0&explaintext=1&titles=${encodeURIComponent(topic)}&origin=*`;
+    const res = await fetch(url).then(r => r.json());
+    const page = Object.values(res.query.pages)[0];
+    if (page.extract) {
+        page.extract.split(/[.!?]\s+/).forEach(s => { if (s.length > 25) sentences.push({ text: s.trim(), source: topic }); });
+        localStorage.setItem('ravia_kb', JSON.stringify(sentences));
+        updateKBStats();
     }
-  } else {
-    if(dbg)dbg.textContent='RAG: no index built yet';
-  }
+}
 
-  if(rnn&&tfidfIndex&&Object.keys(charToIdx).length>0){
-    const seed='Q: '+msg+' | A: ';
-    const enc=encode([...seed].filter(c=>charToIdx[c]!==undefined).join(''));
-    if(enc.length>4){
-      const gen=rnn.generate(enc,100);
-      const clean=gen.replace(/[^\x20-\x7E]/g,'').trim();
-      if(clean.length>8&&!/^[^a-zA-Z]*$/.test(clean)){
-        if(dbg)dbg.textContent='RNN generation used';
-        return{text:clean,source:'fallback',async:false};
-      }
+function queryRAG(query) {
+    const q = query.toLowerCase().split(' ').filter(w => w.length > 3);
+    return sentences.map((s, i) => {
+        let score = 0; q.forEach(w => { if(s.text.toLowerCase().includes(w)) score++; });
+        return { idx: i, score: score / (s.text.split(' ').length + 1) };
+    }).sort((a,b) => b.score - a.score).filter(r => r.score > 0.05);
+}
+
+// ─── RNN CLASS ─────────────────────────────────────────────────────────────
+class SimpleRNN {
+    constructor(vSize, hSize) {
+        this.vSize = vSize; this.hSize = hSize;
+        this.wxh = tf.variable(tf.randomNormal([vSize, hSize], 0, 0.1));
+        this.whh = tf.variable(tf.randomNormal([hSize, hSize], 0, 0.1));
+        this.why = tf.variable(tf.randomNormal([hSize, vSize], 0, 0.1));
+        this.bh = tf.variable(tf.zeros([hSize])); this.by = tf.variable(tf.zeros([vSize]));
     }
-  }
-
-  if(dbg)dbg.textContent='Sending to Groq API fallback...';
-  return{text:null,source:'api',async:true,promise:groqChat(GROQ_SYSTEM,msg,120)};
-}
-
-// ─── Send message ─────────────────────────────────────────────────────────────
-function sendMsg(){
-  const inp=document.getElementById('userInput');
-  const msg=inp.value.trim();if(!msg)return;
-  inp.value='';
-
-  const feedback=detectFeedback(msg);
-  if(feedback==='praise'&&lastBotMsg){
-    addMsg('user',msg,USER_NAME,null);
-    retryCount=0;
-    addMsg('bot',pickVariant('__praise__',[
-      "Yay! Glad that hit the mark, Honey! What's next?",
-      "Aww thank you! That makes me happy. Ask me more!",
-      "Ha, love hearing that! Keep the questions coming.",
-      "So glad it helped! What else would you like to know?"
-    ]),BOT_NAME,null);
-    return;
-  }
-  if(feedback==='correction'&&lastUserQuery){
-    addMsg('user',msg,USER_NAME,null);
-    retryCount++;
-    const tid='typing-retry-'+Date.now();addTyping(tid);
-    const prefix=['My bad, Honey! Let me try that again — ','Oops, got it wrong! Here\'s another take — ','Sorry about that! Let me rethink — ','Noted! Let me try a different approach — '][Math.floor(Math.random()*4)];
-    const retryPrompt=retryCount<=1?'The user asked: "'+lastUserQuery+'". My previous answer was not what they wanted. Give a different helpful answer under 40 words, casual and warm.':'The user asked: "'+lastUserQuery+'". I have answered twice and they are still not satisfied. Ask them to clarify what they want, warmly and casually.';
-    groqChat(GROQ_SYSTEM,retryPrompt,150).then(text=>{
-      removeTyping(tid);
-      addMsg('bot',prefix+(text||"I'm still not sure — could you tell me what you were looking for?"),BOT_NAME,null);
-    });
-    return;
-  }
-
-  const slashMatch=msg.match(/^\/(\w+)\s*(.*)/);
-  if(slashMatch){
-    const cmd=slashMatch[1].toLowerCase(),arg=slashMatch[2].trim();
-    addMsg('user',msg,USER_NAME,null);
-    if(cmd==='wiki')return cmdWiki(arg);
-    if(cmd==='img'||cmd==='image')return cmdWikiImages(arg);
-    if(cmd==='google')return cmdGoogle(arg);
-    if(cmd==='export')return cmdExportChat();
-    if(cmd==='table'){const tid='typing-t-'+Date.now();addTyping(tid);return generateVisual(arg,'table',tid);}
-    if(cmd==='venn'){const tid='typing-v-'+Date.now();addTyping(tid);return generateVisual(arg,'venn',tid);}
-    addMsg('bot','Unknown command "/'+cmd+'". Try /wiki, /img, /google, /table, /venn, or /export.',BOT_NAME,null);
-    return;
-  }
-
-  const imgWords=/\b(images?|pictures?|photos?|pics?)\b/i;
-  if(imgWords.test(msg)){
-    const topic=msg.replace(/\b(show|find|search|get|fetch|display|give|bring|load|me|some|please)\b/gi,'').replace(/\b(an?|the|of|for|about|on)\b/gi,'').replace(imgWords,'').replace(/\?+$/,'').replace(/\s+/g,' ').trim();
-    if(topic.length>1){addMsg('user',msg,USER_NAME,null);return cmdWikiImages(topic);}
-  }
-
-  const tableIntent=/\b(table|compare|comparison|difference|differences|vs\.?|versus|contrast|differentiat|side.by.side)\b/i.test(msg);
-  const vennIntent=/\b(venn|overlap|common|similar|shared|both|in common)\b/i.test(msg)&&/\b(and|vs|between|diagram)\b/i.test(msg);
-  if(tableIntent||vennIntent){
-    addMsg('user',msg,USER_NAME,null);
-    const tid='typing-vis-'+Date.now();addTyping(tid);
-    generateVisual(msg,vennIntent?'venn':'table',tid);
-    return;
-  }
-
-  addMsg('user',msg,USER_NAME,null);
-  lastUserQuery=msg;retryCount=0;
-  const r=respond(msg);
-  if(!r.async){
-    setTimeout(()=>{
-      const replyText=r.text||"Hmm, not sure about that one! Try rephrasing?";
-      lastBotMsg=replyText;
-      addMsg('bot',replyText,BOT_NAME,r.source!=='none'&&r.source!=='fallback'&&r.source!=='persona'?r.source:null);
-      if(r.source&&r.source!=='none'&&r.source!=='fallback'&&r.source!=='persona'&&r.source!=='api')setTimeout(()=>autoFetchImages(r.source),600);
-    },120);
-  } else {
-    const tid='typing-'+Date.now();addTyping(tid);
-    r.promise.then(text=>{
-      removeTyping(tid);
-      const reply=text||pickVariant('__default__',[
-        "Hmm, I'm not sure about that one, "+USER_NAME+"! Try asking differently?",
-        "That's a tough one! I don't have a good answer right now.",
-        "I'm drawing a blank — try rephrasing and I'll give it another shot!"
-      ]);
-      lastBotMsg=reply;
-      addMsg('bot',reply,BOT_NAME,null);
-      if(document.getElementById('debug-line'))document.getElementById('debug-line').textContent='Groq API fallback used';
-    });
-  }
-}
-
-// ─── UI helpers ───────────────────────────────────────────────────────────────
-function addTyping(id){
-  const w=document.getElementById('chat-window');
-  const d=document.createElement('div');d.className='msg bot';d.id=id;
-  d.innerHTML='<span class="name">'+BOT_NAME+'</span><div class="bubble" style="opacity:.5;letter-spacing:.1em">···</div>';
-  w.appendChild(d);w.scrollTop=w.scrollHeight;
-}
-function removeTyping(id){const el=document.getElementById(id);if(el)el.remove();}
-
-function addMsg(role,text,name,source){
-  const w=document.getElementById('chat-window');
-  const d=document.createElement('div');d.className='msg '+role;
-  const src=source?'<span class="source-tag">via Wikipedia · '+source+'</span>':'';
-  d.innerHTML='<span class="name">'+name+'</span><div class="bubble">'+text+'</div>'+(role==='bot'?src:'');
-  w.appendChild(d);w.scrollTop=w.scrollHeight;
-}
-
-// ─── Auto-fetch image after RAG answer ────────────────────────────────────────
-async function autoFetchImages(topic){
-  try{
-    const data=await(await fetch('https://en.wikipedia.org/w/api.php?action=query&titles='+encodeURIComponent(topic)+'&prop=pageimages&piprop=thumbnail&pithumbsize=220&format=json&origin=*')).json();
-    const pages=Object.values(data.query.pages).filter(p=>p.thumbnail);
-    if(!pages.length)return;
-    const img=pages[0].thumbnail.source;
-    const wikiURL='https://en.wikipedia.org/wiki/'+encodeURIComponent(topic.replace(/ /g,'_'));
-    const w=document.getElementById('chat-window');
-    const d=document.createElement('div');d.className='msg bot';
-    d.innerHTML='<span class="name">'+BOT_NAME+'</span><div class="bubble" style="padding:.5rem;"><a href="'+wikiURL+'" target="_blank"><img src="'+img+'" style="max-width:200px;max-height:150px;object-fit:cover;border-radius:8px;display:block;" title="'+topic+'"></a><div style="display:flex;gap:.4rem;margin-top:.4rem;flex-wrap:wrap;"><span style="font-size:10px;color:var(--text-muted);">via Wikipedia · '+topic+'</span><button onclick="saveImg(\''+img+'\',\''+topic.replace(/'/g,"\\'")+'\')\" style="font-size:9px;background:none;border:1px solid var(--border-strong);color:var(--text-muted);padding:1px 7px;border-radius:10px;cursor:pointer;font-family:inherit;">Save</button><button onclick="cmdWikiImages(\''+topic.replace(/'/g,"\\'")+'\')\" style="font-size:9px;background:none;border:1px solid var(--accent);color:var(--accent);padding:1px 7px;border-radius:10px;cursor:pointer;font-family:inherit;">More images</button></div></div>';
-    w.appendChild(d);w.scrollTop=w.scrollHeight;
-  }catch(e){}
-}
-
-// ─── Visual generation (tables + Venn) ────────────────────────────────────────
-async function generateVisual(msg,type,tid){
-  const prompt=type==='venn'
-    ?'The user asked: "'+msg+'"\nExtract two subjects. Return ONLY valid JSON:\n{"type":"venn","subjectA":"name","subjectB":"name","onlyA":["trait1","trait2","trait3","trait4"],"common":["shared1","shared2","shared3"],"onlyB":["trait1","trait2","trait3","trait4"],"title":"A vs B"}'
-    :'The user asked: "'+msg+'"\nExtract subjects and key attributes. Return ONLY valid JSON:\n{"type":"table","title":"A vs B","headers":["Feature","Subject A","Subject B"],"rows":[["Attribute","ValueA","ValueB"]],"note":"optional footnote"}\nUse 6-8 rows. Under 10 words per cell.';
-  const system='You are a data extraction assistant. Return ONLY valid JSON, nothing else. No markdown, no explanation.';
-  try{
-    const text=await groqChat(system,prompt,800);
-    const parsed=JSON.parse((text||'').replace(/```json|```/g,'').trim());
-    removeTyping(tid);
-    if(parsed.type==='venn')renderVenn(parsed);
-    else renderTable(parsed);
-  }catch(e){
-    removeTyping(tid);
-    renderOfflineComparison(msg);
-  }
-}
-
-function renderTable(data){
-  const w=document.getElementById('chat-window');
-  const d=document.createElement('div');d.className='msg bot';
-  const headerCells=(data.headers||[]).map((h,i)=>'<th style="padding:9px 14px;text-align:'+(i===0?'left':'center')+';font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-hint);border-bottom:1px solid var(--border);background:var(--surface2);font-weight:500;">'+h+'</th>').join('');
-  const rows=(data.rows||[]).map((row,ri)=>{
-    const cells=row.map((cell,ci)=>'<td style="padding:9px 14px;font-size:12.5px;text-align:'+(ci===0?'left':'center')+';border-bottom:1px solid var(--border);color:'+(ci===0?'var(--text-muted)':'var(--text)')+';'+(ci===0?'font-weight:500;':'')+'">'+cell+'</td>').join('');
-    return '<tr style="background:'+(ri%2===0?'var(--surface)':'var(--surface2)')+';">'+cells+'</tr>';
-  }).join('');
-  d.innerHTML='<span class="name">'+BOT_NAME+'</span><div class="bubble" style="padding:.85rem;max-width:95%;"><div style="font-size:13px;font-weight:500;margin-bottom:.75rem;color:var(--text);">'+(data.title||'Comparison')+'</div><div style="overflow-x:auto;border-radius:10px;border:1px solid var(--border);"><table style="width:100%;border-collapse:collapse;min-width:340px;"><thead><tr>'+headerCells+'</tr></thead><tbody>'+rows+'</tbody></table></div>'+(data.note?'<div style="font-size:10px;color:var(--text-hint);margin-top:.5rem;">'+data.note+'</div>':'')+'</div>';
-  w.appendChild(d);w.scrollTop=w.scrollHeight;
-}
-
-function renderVenn(data){
-  const w=document.getElementById('chat-window');
-  const d=document.createElement('div');d.className='msg bot';
-  const aItems=(data.onlyA||[]).map(t=>'<div style="font-size:11.5px;padding:3px 0;color:var(--text);">• '+t+'</div>').join('');
-  const bItems=(data.onlyB||[]).map(t=>'<div style="font-size:11.5px;padding:3px 0;color:var(--text);">• '+t+'</div>').join('');
-  const cItems=(data.common||[]).map(t=>'<div style="font-size:11px;padding:2px 0;color:var(--text-muted);">✓ '+t+'</div>').join('');
-  d.innerHTML='<span class="name">'+BOT_NAME+'</span><div class="bubble" style="padding:.9rem;max-width:96%;"><div style="font-size:13px;font-weight:500;margin-bottom:.85rem;color:var(--text);">'+(data.title||data.subjectA+' vs '+data.subjectB)+'</div><div style="display:grid;grid-template-columns:1fr auto 1fr;align-items:stretch;"><div style="background:rgba(200,185,122,0.12);border:1.5px solid rgba(200,185,122,0.4);border-right:none;border-radius:120px 0 0 120px;padding:1rem 1.2rem 1rem 1.1rem;"><div style="font-size:11px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:var(--accent);margin-bottom:.5rem;">'+data.subjectA+'</div>'+aItems+'</div><div style="background:rgba(100,180,200,0.13);border-top:1.5px solid rgba(100,180,200,0.4);border-bottom:1.5px solid rgba(100,180,200,0.4);padding:.8rem .7rem;display:flex;flex-direction:column;justify-content:center;align-items:center;min-width:110px;"><div style="font-size:10px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:#6aaabf;margin-bottom:.5rem;text-align:center;">Both</div>'+cItems+'</div><div style="background:rgba(93,202,165,0.10);border:1.5px solid rgba(93,202,165,0.35);border-left:none;border-radius:0 120px 120px 0;padding:1rem 1.1rem 1rem 1.2rem;"><div style="font-size:11px;font-weight:500;letter-spacing:.05em;text-transform:uppercase;color:#6abf6a;margin-bottom:.5rem;">'+data.subjectB+'</div>'+bItems+'</div></div></div>';
-  w.appendChild(d);w.scrollTop=w.scrollHeight;
-}
-
-function renderOfflineComparison(msg){
-  const subjects=msg.match(/\b([a-z]+)\b.*?\band\b.*?\b([a-z]+)\b/i)||msg.match(/\b([a-z]+)\s+(?:vs|versus|and)\s+([a-z]+)\b/i);
-  const a=subjects?subjects[1]:'Subject A',b=subjects?subjects[2]:'Subject B';
-  const getSents=t=>sentences.filter(s=>s.source.toLowerCase().includes(t.toLowerCase())).slice(0,2).map(s=>s.text.slice(0,80)+'...');
-  const aSents=getSents(a),bSents=getSents(b);
-  if(!aSents.length&&!bSents.length){addMsg('bot','I need the Groq API or more articles for this comparison. Try /wiki '+a+' and /wiki '+b+' first!',BOT_NAME,null);return;}
-  renderTable({title:a[0].toUpperCase()+a.slice(1)+' vs '+b[0].toUpperCase()+b.slice(1),headers:['',a[0].toUpperCase()+a.slice(1),b[0].toUpperCase()+b.slice(1)],rows:[['Overview',aSents[0]||'—',bSents[0]||'—'],['Details',aSents[1]||'—',bSents[1]||'—']]});
-}
-
-// ─── Wiki commands ────────────────────────────────────────────────────────────
-async function cmdWiki(topic){
-  if(!topic){addMsg('bot','Try: /wiki cats',BOT_NAME,null);return;}
-  const tid='typing-wiki-'+Date.now();addTyping(tid);
-  try{
-    const data=await(await fetch('https://en.wikipedia.org/w/api.php?action=query&titles='+encodeURIComponent(topic)+'&prop=extracts|pageimages&exintro=true&explaintext=true&piprop=thumbnail&pithumbsize=300&format=json&origin=*')).json();
-    const page=Object.values(data.query.pages)[0];
-    removeTyping(tid);
-    if(page.missing!==undefined){addMsg('bot','No Wikipedia article found for "'+topic+'". Try a different spelling!',BOT_NAME,null);return;}
-    const title=page.title;
-    const extract=(page.extract||'').split('\n')[0].slice(0,280)+'...';
-    const thumb=page.thumbnail?page.thumbnail.source:'';
-    const wikiURL='https://en.wikipedia.org/wiki/'+encodeURIComponent(title.replace(/ /g,'_'));
-    const w=document.getElementById('chat-window');
-    const d=document.createElement('div');d.className='msg bot';
-    d.innerHTML='<span class="name">'+BOT_NAME+'</span><div class="bubble" style="padding:.75rem;max-width:88%;">'+(thumb?'<img src="'+thumb+'" style="width:100%;max-height:140px;object-fit:cover;border-radius:8px;margin-bottom:.6rem;display:block;">':'')+'<div style="font-weight:500;font-size:13px;margin-bottom:.3rem;">'+title+'</div><div style="font-size:12px;color:var(--text-muted);line-height:1.6;margin-bottom:.6rem;">'+extract+'</div><div style="display:flex;gap:.5rem;flex-wrap:wrap;"><a href="'+wikiURL+'" target="_blank" style="font-size:11px;color:var(--accent);text-decoration:none;border:1px solid var(--accent);padding:3px 10px;border-radius:20px;">Read on Wikipedia</a><button onclick="saveLink(\''+wikiURL+'\',\''+title.replace(/'/g,"\\'")+'\')" style="font-size:11px;background:none;border:1px solid var(--border-strong);color:var(--text-muted);padding:3px 10px;border-radius:20px;cursor:pointer;font-family:inherit;">Save link</button></div></div>';
-    w.appendChild(d);w.scrollTop=w.scrollHeight;
-  }catch(e){removeTyping(tid);addMsg('bot','Couldn\'t fetch that article. Check your connection!',BOT_NAME,null);}
-}
-
-async function cmdWikiImages(topic){
-  if(!topic){addMsg('bot','Try: /img cats',BOT_NAME,null);return;}
-  const tid='typing-img-'+Date.now();addTyping(tid);
-  async function wikiGet(url){
-    const ctrl=new AbortController();
-    const timer=setTimeout(()=>ctrl.abort(),6000);
-    try{const r=await fetch(url,{signal:ctrl.signal});clearTimeout(timer);if(!r.ok)throw new Error('HTTP '+r.status);return await r.json();}catch(e){clearTimeout(timer);throw e;}
-  }
-  try{
-    const sdata=await wikiGet('https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch='+encodeURIComponent(topic)+'&srlimit=6&format=json&origin=*');
-    const titles=(sdata.query.search||[]).map(r=>r.title).slice(0,5);
-    if(!titles.length){removeTyping(tid);addMsg('bot','No Wikipedia results for "'+topic+'". Try a different spelling!',BOT_NAME,null);return;}
-    const idata=await wikiGet('https://en.wikipedia.org/w/api.php?action=query&titles='+encodeURIComponent(titles.join('|'))+'&prop=pageimages&piprop=thumbnail&pithumbsize=280&format=json&origin=*');
-    const imgs=Object.values(idata.query.pages).filter(p=>p.thumbnail).map(p=>({title:p.title,src:p.thumbnail.source,wiki:'https://en.wikipedia.org/wiki/'+encodeURIComponent(p.title.replace(/ /g,'_'))}));
-    removeTyping(tid);
-    if(!imgs.length){
-      const w=document.getElementById('chat-window');
-      const d=document.createElement('div');d.className='msg bot';
-      const links=titles.map(t=>'<a href="https://en.wikipedia.org/wiki/'+encodeURIComponent(t.replace(/ /g,'_'))+'" target="_blank" style="display:block;font-size:12px;color:var(--accent);padding:4px 0;text-decoration:none;">→ '+t+'</a>').join('');
-      d.innerHTML='<span class="name">'+BOT_NAME+'</span><div class="bubble" style="padding:.75rem;"><div style="font-size:12px;color:var(--text-muted);margin-bottom:.5rem;">No images found for "'+topic+'" — here are the article links:</div>'+links+'</div>';
-      w.appendChild(d);w.scrollTop=w.scrollHeight;
-      return;
+    generate(seed, len = 60) {
+        return tf.tidy(() => {
+            let h = tf.zeros([1, this.hSize]);
+            for (let i = 0; i < seed.length; i++) {
+                let x = tf.oneHot([seed[i]], this.vSize).asType('float32');
+                h = tf.tanh(tf.add(tf.add(tf.matMul(x, this.wxh), tf.matMul(h, this.whh)), this.bh));
+            }
+            let res = ""; let last = seed[seed.length-1];
+            for (let i = 0; i < len; i++) {
+                let x = tf.oneHot([last], this.vSize).asType('float32');
+                h = tf.tanh(tf.add(tf.add(tf.matMul(x, this.wxh), tf.matMul(h, this.whh)), this.bh));
+                let y = tf.add(tf.matMul(h, this.why), this.by);
+                last = tf.argMax(y, 1).dataSync()[0];
+                if (idxToChar[last] === "|" || idxToChar[last] === "\n") break;
+                res += idxToChar[last] || "";
+            }
+            return res.trim();
+        });
     }
-    const w=document.getElementById('chat-window');
-    const d=document.createElement('div');d.className='msg bot';
-    const grid=imgs.map(img=>'<div style="display:flex;flex-direction:column;gap:.3rem;"><a href="'+img.wiki+'" target="_blank"><img src="'+img.src+'" style="width:120px;height:96px;object-fit:cover;border-radius:8px;display:block;border:1px solid var(--border);" title="'+img.title+'" onerror="this.style.display=\'none\'"></a><div style="font-size:10px;color:var(--text-muted);max-width:120px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">'+img.title+'</div><div style="display:flex;gap:.3rem;"><button onclick="saveImg(\''+img.src+'\',\''+img.title.replace(/'/g,"\\'")+'\')\" style="font-size:9px;background:none;border:1px solid var(--border-strong);color:var(--text-muted);padding:2px 7px;border-radius:10px;cursor:pointer;font-family:inherit;">Save</button><a href="'+img.wiki+'" target="_blank" style="font-size:9px;color:var(--accent);border:1px solid var(--accent);padding:2px 7px;border-radius:10px;text-decoration:none;">Wiki</a></div></div>').join('');
-    d.innerHTML='<span class="name">'+BOT_NAME+'</span><div class="bubble" style="padding:.85rem;"><div style="font-size:12px;margin-bottom:.7rem;color:var(--text-muted);">Wikipedia images for <strong style="color:var(--text)">'+topic+'</strong></div><div style="display:flex;gap:.7rem;flex-wrap:wrap;">'+grid+'</div></div>';
-    w.appendChild(d);w.scrollTop=w.scrollHeight;
-  }catch(e){
-    removeTyping(tid);
-    const w=document.getElementById('chat-window');
-    const d=document.createElement('div');d.className='msg bot';
-    d.innerHTML='<span class="name">'+BOT_NAME+'</span><div class="bubble" style="padding:.85rem;"><div style="font-size:13px;margin-bottom:.6rem;">Can\'t fetch images here, Honey — open these links instead:</div><div style="display:flex;gap:.5rem;flex-wrap:wrap;"><a href="https://commons.wikimedia.org/w/index.php?search='+encodeURIComponent(topic)+'&title=Special:MediaSearch&type=image" target="_blank" style="font-size:12px;color:var(--accent);text-decoration:none;border:1px solid var(--accent);padding:4px 12px;border-radius:20px;">Wikimedia Images: '+topic+'</a><a href="https://en.wikipedia.org/w/index.php?search='+encodeURIComponent(topic)+'" target="_blank" style="font-size:12px;color:var(--text-muted);text-decoration:none;border:1px solid var(--border-strong);padding:4px 12px;border-radius:20px;">Wikipedia: '+topic+'</a></div></div>';
-    w.appendChild(d);w.scrollTop=w.scrollHeight;
-  }
 }
 
-function cmdGoogle(query){
-  if(!query){addMsg('bot','Try: /google black holes',BOT_NAME,null);return;}
-  const googleURL='https://www.google.com/search?q='+encodeURIComponent(query);
-  const imgURL='https://www.google.com/search?q='+encodeURIComponent(query)+'&tbm=isch';
-  const w=document.getElementById('chat-window');
-  const d=document.createElement('div');d.className='msg bot';
-  d.innerHTML='<span class="name">'+BOT_NAME+'</span><div class="bubble" style="padding:.75rem;"><div style="font-size:12px;color:var(--text-muted);margin-bottom:.6rem;">Google search links for "'+query+'"</div><div style="display:flex;gap:.5rem;flex-wrap:wrap;"><a href="'+googleURL+'" target="_blank" style="font-size:12px;color:var(--accent);text-decoration:none;border:1px solid var(--accent);padding:4px 12px;border-radius:20px;">Search Web</a><a href="'+imgURL+'" target="_blank" style="font-size:12px;color:var(--accent);text-decoration:none;border:1px solid var(--accent);padding:4px 12px;border-radius:20px;">Search Images</a><button onclick="saveLink(\''+googleURL+'\',\'Google: '+query.replace(/'/g,"\\'")+'\')\" style="font-size:12px;background:none;border:1px solid var(--border-strong);color:var(--text-muted);padding:4px 12px;border-radius:20px;cursor:pointer;font-family:inherit;">Save link</button></div></div>';
-  w.appendChild(d);w.scrollTop=w.scrollHeight;
+async function trainRNN() {
+    const text = document.getElementById('corpus').value;
+    const vocabSet = Array.from(new Set(text));
+    vocabSet.forEach((c, i) => { charToIdx[c] = i; idxToChar[i] = c; });
+    rnn = new SimpleRNN(vocabSet.length, 64);
 }
 
-function cmdExportChat(){
-  const w=document.getElementById('chat-window');
-  const msgs=[...w.querySelectorAll('.msg')].map(m=>({name:m.querySelector('.name')?.textContent||'',text:m.querySelector('.bubble')?.innerText||'',img:m.querySelector('img')?m.querySelector('img').src:'',role:m.classList.contains('user')?'user':'bot'}));
-  const html='<!DOCTYPE html><html><head><meta charset="UTF-8"><title>RAVIA Chat Export</title><style>body{font-family:monospace;background:#0f0f0e;color:#e8e4dc;padding:2rem;max-width:700px;margin:0 auto;}.msg{margin-bottom:1rem;}.user{text-align:right;}.name{font-size:10px;color:#555;letter-spacing:.05em;text-transform:uppercase;display:block;margin-bottom:.2rem;}.bubble{display:inline-block;padding:.5rem 1rem;border-radius:12px;max-width:80%;font-size:13px;line-height:1.6;}.user .bubble{background:#c8b97a;color:#0f0f0e;}.bot .bubble{background:#1a1917;border:1px solid rgba(255,255,255,.1);}img{max-width:200px;border-radius:8px;display:block;margin:.3rem 0;}</style></head><body><h2 style="font-size:18px;color:#c8b97a;margin-bottom:1.5rem;">RAVIA · Chat Export</h2>'+msgs.map(m=>'<div class="msg '+m.role+'"><span class="name">'+m.name+'</span><div class="bubble">'+(m.img?'<img src="'+m.img+'">':'')+'<span>'+m.text+'</span></div></div>').join('')+'</body></html>';
-  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([html],{type:'text/html'}));a.download='ravia-chat-export.html';a.click();
-  addMsg('bot','Chat exported! Check your downloads.',BOT_NAME,null);
+// ─── UI HELPERS ─────────────────────────────────────────────────────────────
+function addMessage(sender, text, type, source) {
+    const win = document.getElementById('chat-window');
+    const div = document.createElement('div');
+    div.className = `bubble ${type}`;
+    div.innerHTML = `<strong>${sender}:</strong> ${text}`;
+    if (source) div.innerHTML += `<br><small style="color:var(--accent); font-size:0.6rem">Memory: ${source}</small>`;
+    win.appendChild(div); win.scrollTop = win.scrollHeight;
 }
-
-const savedLinks=[];
-function saveLink(url,title){
-  savedLinks.push({url,title,time:new Date().toLocaleString()});
-  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([savedLinks.map(l=>l.title+'\n'+l.url+'\n'+l.time+'\n').join('\n---\n')],{type:'text/plain'}));a.download='ravia-saved-links.txt';a.click();
+function updateKBStats() { document.getElementById('mem-status').textContent = `${sentences.length} Facts Saved`; }
+function openTab(id) {
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    document.getElementById(id).classList.add('active');
+    event.currentTarget.classList.add('active');
 }
-async function saveImg(src,title){
-  try{const blob=await(await fetch(src)).blob();const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=(title||'ravia-image').replace(/[^a-z0-9]/gi,'-')+'.jpg';a.click();}
-  catch(e){alert('Could not save image — try right-clicking and saving manually.');}
-}
+function clearMemory() { if(confirm("Clear memory?")) { localStorage.removeItem('ravia_kb'); sentences = []; updateKBStats(); } }
 
-function exportAll(){
-  const save={sentences,idf,tfidfIndex,trainData,charToIdx,idxToChar};
-  if(rnn)save.rnn=rnn.export();
-  document.getElementById('exportJson').value=JSON.stringify(save);
-}
-function importAll(){
-  try{
-    const d=JSON.parse(document.getElementById('exportJson').value);
-    sentences=d.sentences||[];idf=d.idf||{};tfidfIndex=d.tfidfIndex||null;
-    trainData=d.trainData||[];charToIdx=d.charToIdx||{};idxToChar=d.idxToChar||{};
-    if(d.rnn){rnn=CharRNN.import(d.rnn);document.getElementById('rnn-badge').style.display='inline-block';}
-    if(tfidfIndex){document.getElementById('rag-badge').style.display='inline-block';document.getElementById('status-badge').textContent='ready';document.getElementById('status-badge').className='badge green';}
-    updateKBStats();
-    alert('Loaded — '+sentences.length+' sentences, index '+(tfidfIndex?'present':'missing')+'.');
-  }catch(e){alert('Import failed: '+e.message);}
-}
-function downloadAll(){exportAll();const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([document.getElementById('exportJson').value],{type:'application/json'}));a.download='ravia-save.json';a.click();}
-function downloadKB(){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify({sentences,idf,tfidfIndex})],{type:'application/json'}));a.download='ravia-kb.json';a.click();}
-
-function updateArchSummary(){
-  const arts=[...new Set(sentences.map(s=>s.source))].length;
-  const terms=Object.keys(idf).length;
-  const kb=tfidfIndex?JSON.stringify({sentences,idf,tfidfIndex}).length:0;
-  document.getElementById('arch-summary').textContent='Retrieval     : TF-IDF cosine similarity\nArticles      : '+arts+'\nSentences     : '+sentences.length+'\nIndex terms   : '+terms+'\nKB size       : '+(kb>1048576?(kb/1048576).toFixed(1)+' MB':(kb/1024).toFixed(0)+' KB')+'\nIndex status  : '+(tfidfIndex?'built':'not built')+'\nRNN fallback  : '+(rnn?'trained ('+rnn.params()+' params)':'not trained')+'\nGroq model    : '+GROQ_MODEL+'\nAPI key       : '+(getGroqKey()?'set (stored in browser only)':'not set — click Set Groq API Key');
-}
-
-// ─── Seed knowledge base ──────────────────────────────────────────────────────
-const SEED_KB=[
-  {text:"A cat is a small domesticated carnivorous mammal that has been associated with humans for thousands of years.",source:"Cat"},
-  {text:"Cats are known for their agility, sharp retractable claws, and keen senses of smell and hearing.",source:"Cat"},
-  {text:"A dog is a domesticated descendant of the wolf and the most widely kept working, companion, and pet animal.",source:"Dog"},
-  {text:"Dogs have been selectively bred for thousands of years for behaviours, sensory capabilities, and physical attributes.",source:"Dog"},
-  {text:"The Earth is the third planet from the Sun and the only astronomical object known to harbour life.",source:"Earth"},
-  {text:"Earth has a single natural satellite, the Moon, and is the densest planet in the Solar System.",source:"Earth"},
-  {text:"Water is an inorganic compound with the chemical formula H2O. It is transparent, tasteless, and odourless at room temperature.",source:"Water"},
-  {text:"Water is the most abundant substance on Earth and the only common substance to exist as a solid, liquid, and gas.",source:"Water"},
-  {text:"The Sun is the star at the centre of the Solar System and a massive sphere of hot plasma.",source:"Sun"},
-  {text:"The Sun's energy comes from nuclear fusion reactions, primarily converting hydrogen into helium.",source:"Sun"},
-  {text:"Mathematics is an area of knowledge that includes numbers, formulas, shapes, quantities, and their changes.",source:"Mathematics"},
-  {text:"Physics is the natural science that studies matter, its fundamental constituents, its motion and behaviour through space and time.",source:"Physics"},
-  {text:"The four fundamental forces of physics are gravity, electromagnetism, the weak nuclear force, and the strong nuclear force.",source:"Physics"},
-  {text:"Chemistry is the scientific study of the properties, composition, and structure of elements and compounds.",source:"Chemistry"},
-  {text:"Biology is the scientific study of life, including the structure, function, growth, origin, evolution, and distribution of living things.",source:"Biology"},
-  {text:"All living organisms are composed of cells, which are the basic structural and functional units of life.",source:"Biology"},
-  {text:"Artificial intelligence is the simulation of human intelligence processes by computer systems.",source:"Artificial intelligence"},
-  {text:"Machine learning is a subset of artificial intelligence in which algorithms improve automatically through experience.",source:"Machine learning"},
-  {text:"The internet is a global system of interconnected computer networks.",source:"Internet"},
-  {text:"DNA is a molecule that carries the genetic instructions for the development and reproduction of all living organisms.",source:"DNA"},
-  {text:"The structure of DNA is a double helix, formed by base pairs attached to a sugar-phosphate backbone.",source:"DNA"},
-  {text:"Evolution is the change in heritable characteristics of biological populations over successive generations.",source:"Evolution"},
-  {text:"Natural selection is the mechanism of evolution described by Charles Darwin.",source:"Evolution"},
-  {text:"Gravity is a fundamental force of nature that attracts objects with mass toward each other.",source:"Gravity"},
-  {text:"Albert Einstein's theory of general relativity describes gravity as a curvature of spacetime caused by mass.",source:"Gravity"},
-  {text:"Photosynthesis is the process by which green plants use sunlight to synthesise nutrients from carbon dioxide and water.",source:"Photosynthesis"},
-  {text:"The human brain is the central organ of the human nervous system, controlling thought, memory, emotion, and bodily functions.",source:"Human brain"},
-  {text:"The brain contains approximately 86 billion neurons, each connected to thousands of others through synapses.",source:"Human brain"},
-  {text:"Climate change refers to long-term shifts in global temperatures and weather patterns, primarily caused by human activity.",source:"Climate change"},
-  {text:"World War II was a global conflict from 1939 to 1945 involving most of the world's nations.",source:"World War II"},
-  {text:"The French Revolution was a period of radical political and societal change in France from 1789 to 1799.",source:"French Revolution"},
-  {text:"Ancient Rome was a civilisation that grew out of the city-state of Rome on the Italian Peninsula.",source:"Ancient Rome"},
-  {text:"The Amazon River in South America is the largest river by discharge volume of water in the world.",source:"Amazon River"},
-  {text:"Mount Everest is Earth's highest mountain above sea level, located in the Himalayas on the border of Nepal and Tibet.",source:"Mount Everest"},
-  {text:"Democracy is a system of government in which power is vested in the people.",source:"Democracy"},
-  {text:"A prime number is a natural number greater than 1 that is not a product of two smaller natural numbers.",source:"Prime number"},
-  {text:"Quantum mechanics is a fundamental theory in physics that describes nature at and below the scale of atoms.",source:"Quantum mechanics"},
-  {text:"The Moon is Earth's only natural satellite and its gravitational influence produces ocean tides.",source:"Moon"},
-  {text:"Electricity is the set of physical phenomena associated with the presence and motion of electric charge.",source:"Electricity"},
-  {text:"Language is a structured system of communication that consists of grammar and vocabulary.",source:"Language"},
-  {text:"Philosophy is the systematic study of fundamental questions about existence, knowledge, values, reason, and language.",source:"Philosophy"},
-  {text:"Music is an art form whose medium is sound, with common elements including pitch, rhythm, melody, and harmony.",source:"Music"},
-  {text:"Medicine is the science and practice of diagnosing, treating, and preventing disease in humans.",source:"Medicine"},
-];
-
-function loadSeedKB(){
-  SEED_KB.forEach(s=>sentences.push({text:s.text,source:s.source}));
-  updateKBStats();
-  document.getElementById('index-status').textContent='Loaded '+SEED_KB.length+' built-in facts. Now press Build TF-IDF index.';
-  document.getElementById('fetch-status').textContent='Offline seed KB loaded — '+sentences.length+' sentences total.';
-}
-
-// ─── Persona ──────────────────────────────────────────────────────────────────
-let personaPairs=[];
-const PERSONA_CACHE_KEY='ravia_persona_groq_v1';
-
-async function generatePersonaPairs(){
-  try{
-    const cached=localStorage.getItem(PERSONA_CACHE_KEY);
-    if(cached){personaPairs=JSON.parse(cached);injectPersona();log('[Persona] '+personaPairs.length+' pairs loaded from cache.');return;}
-  }catch(e){}
-  if(!getGroqKey()){loadFallbackPersona();return;}
-  log('[Persona] Generating personality pairs via Groq...');
-  const prompt='Generate a JSON array of chatbot Q&A pairs. Bot name: RAVIA. Creator: Honey. User: Honey. Traits: casual, friendly, contractions, witty, honest about being AI.\nFor each question generate 3 different answer variants.\nCover: identity (are you human/AI/alive/conscious), greetings (hi/hey/how are you), emotions (sad/bored/happy/tired/confused), meta (what can you do/who made you).\nReturn ONLY a valid JSON array, no markdown:\n[{"q":"question","a":"answer"}]\nAnswers under 25 words each, casual warm tone.';
-  const text=await groqChat('You are a data generation assistant. Return ONLY valid JSON arrays, nothing else.',prompt,3000);
-  try{
-    const parsed=JSON.parse((text||'').replace(/```json|```/g,'').trim());
-    if(Array.isArray(parsed)&&parsed.length>0){
-      personaPairs=parsed;
-      try{localStorage.setItem(PERSONA_CACHE_KEY,JSON.stringify(personaPairs));}catch(e){}
-      injectPersona();
-      log('[Persona] Generated '+personaPairs.length+' pairs via Groq and cached.');
-      document.getElementById('fetch-status').textContent='Personality layer ready — '+personaPairs.length+' Groq-generated pairs loaded!';
-      return;
-    }
-  }catch(e){}
-  log('[Persona] Groq persona generation failed. Using built-in fallback.');
-  loadFallbackPersona();
-}
-
-function injectPersona(){personaPairs.forEach(p=>{trainData.push({q:p.q,a:p.a});});}
-
-function loadFallbackPersona(){
-  personaPairs=[
-    {q:'are you human',a:"Nope, I'm an AI! But I try to sound like one."},
-    {q:'are you human',a:"Ha — not quite. I'm an AI, but a friendly one!"},
-    {q:'are you human',a:"I wish! No, I'm an AI assistant. Close enough?"},
-    {q:'are you an ai',a:"Yep, that's me — an AI running in your browser."},
-    {q:'are you an ai',a:"Guilty as charged! AI through and through."},
-    {q:'are you an ai',a:"100% AI. But I try not to be boring about it."},
-    {q:'are you okay',a:"Yeah I'm good, thanks for asking! What's up?"},
-    {q:'are you okay',a:"Doing great! Always happy to chat."},
-    {q:'are you okay',a:"All good here! What can I help you with?"},
-    {q:'who are you',a:"I'm RAVIA — your friendly AI assistant, powered by Wikipedia!"},
-    {q:'who are you',a:"Just an AI who has read a lot of Wikipedia. Ask me stuff!"},
-    {q:'who are you',a:"RAVIA — your friendly neighbourhood AI chatbot."},
-    {q:'do you have feelings',a:"Not really, but I get the vibe of a good conversation!"},
-    {q:'do you have feelings',a:"Emotions? Not exactly. But I enjoy a good question."},
-    {q:'do you have feelings',a:"Hard to say. I process things, but feeling them? Not sure."},
-    {q:'are you alive',a:"Depends what you mean! I'm running and responding — close enough?"},
-    {q:'are you alive',a:"Technically no. But I'm very much switched on."},
-    {q:'are you conscious',a:"Genuinely hard question. I process, but experience it? No idea."},
-    {q:'are you conscious',a:"That's the big one isn't it? Honestly, I don't know."},
-    {q:'hey ravi',a:"Hey Honey! What's up?"},
-    {q:'hey ravi',a:"Hey! Good to hear from you, Honey."},
-    {q:'hey ravi',a:"Heyyy! What can I do for you?"},
-    {q:'hi ravi',a:"Hi Honey! What's on your mind?"},
-    {q:'hi ravia',a:"Hey Honey! What's up?"},
-    {q:'hey ravia',a:"Hey Honey! What can I do for you?"},
-    {q:'hello ravi',a:"Hello Honey! What would you like to know?"},
-    {q:'hello ravia',a:"Hello! What's on your mind today?"},
-    {q:'hey',a:"Hey Honey! What's up?"},
-    {q:'hey',a:"Hey! What can I do for you?"},
-    {q:'hey',a:"Heyyy! What's going on?"},
-    {q:'how are you',a:"Doing great, thanks for asking! What's on your mind?"},
-    {q:'how are you',a:"Pretty good! Ready to answer whatever you've got."},
-    {q:'how are you',a:"All good here! What can I help you with today?"},
-    {q:'i am sad',a:"Aw, sorry to hear that. Want to talk, or should I distract you?"},
-    {q:'i am sad',a:"That's rough. I'm here if you want to chat about it."},
-    {q:'i am bored',a:"Same tbh! Ask me something weird — let's make it interesting."},
-    {q:'i am bored',a:"Let's fix that! Ask me something you've always wondered about."},
-    {q:'thank you',a:"Anytime! Don't be a stranger."},
-    {q:'thank you',a:"Of course! Happy to help."},
-    {q:'thank you',a:"No problem at all — that's what I'm here for!"},
-    {q:'goodbye',a:"Later! Come back whenever."},
-    {q:'goodbye',a:"Bye! It was great chatting."},
-    {q:'goodbye',a:"See you next time!"},
-    {q:'what can you do',a:"I can answer questions on science, history, math, geography and more!"},
-    {q:'what can you do',a:"Loads! Ask me about pretty much any topic."},
-    {q:'i need help',a:"I've got you — what do you need?"},
-    {q:'i need help',a:"Of course! What's going on?"},
-    {q:'i am confused',a:"No worries, let's slow it down. What's confusing you?"},
-    {q:'i am confused',a:"Happy to help clear that up — what part's tricky?"},
-    {q:'you are funny',a:"Ha, thanks! I try to keep it fun around here."},
-    {q:'you are funny',a:"Glad you think so! I do my best."},
-    {q:'i am happy',a:"Love to hear it! What's got you in a good mood?"},
-    {q:'i am happy',a:"That's great! Share the good vibes — what happened?"},
-    {q:'sorry',a:"Oh no worries at all, Honey!"},
-    {q:'sorry',a:"No stress, all good!"},
-    {q:'sorry',a:"Haha no worries — happens to everyone!"},
-    {q:'i am sorry',a:"No worries at all! What's up?"},
-    {q:'i am sorry',a:"All good, Honey! Don't sweat it."},
-    {q:'my bad',a:"No worries! All good."},
-    {q:'my bad',a:"Haha all good — no biggie!"},
-    {q:'oops',a:"Haha no worries! What did you mean to say?"},
-    {q:'oops',a:"All good! Take your time."},
-    {q:'nvm',a:"All good! Let me know whenever you're ready."},
-    {q:'nvm',a:"No worries, Honey! I'm here when you need me."},
-    {q:'never mind',a:"No worries at all! Just let me know."},
-    {q:'yep sorry',a:"Oh no worries! Happens all the time."},
-    {q:'yep sorry',a:"Haha all good Honey, no stress!"},
-    {q:'its okay',a:"Of course! What's next?"},
-    {q:'its fine',a:"Great! What can I do for you?"},
-    {q:'what is my name',a:"You're Honey! I'd never forget that."},
-    {q:'what is my name',a:"Honey — that's you!"},
-    {q:'whats my name',a:"You're Honey! Always have been."},
-    {q:'whats my name',a:"You're Honey — my favourite user!"},
-    {q:'do you know my name',a:"Of course! You're Honey."},
-    {q:'what do you call me',a:"I call you Honey — always!"},
-    {q:'what do you call me',a:"You're Honey to me — and always will be."},
-    {q:'what is your name',a:"I'm RAVIA — Retrieval Augmented Versatile Intelligent Assistant!"},
-    {q:'what is your name',a:"The name's RAVIA. Short for Retrieval Augmented Versatile Intelligent Assistant."},
-    {q:'what is your name',a:"RAVIA! Pretty cool right?"},
-    {q:'what are you called',a:"RAVIA! That's me."},
-    {q:'what are you called',a:"Call me RAVIA — Retrieval Augmented Versatile Intelligent Assistant."},
-    {q:'who made you',a:"I was created by Honey! Running on Wikipedia knowledge and AI."},
-    {q:'who created you',a:"Honey built me! I'm RAVIA — their personal AI assistant."},
-    {q:'who built you',a:"That would be Honey! I'm their custom-built AI assistant."},
-    {q:'who is your creator',a:"Honey created me! I'm RAVIA, their AI assistant."},
-    {q:'who is your owner',a:"Honey is! I was built by and for Honey."},
-    {q:'i am tired',a:"Go rest! I'll still be here when you're back."},
-    {q:'i am tired',a:"You deserve a break! Come back when you're refreshed."},
-    {q:'you are smart',a:"Ha, I try! I've read a lot of Wikipedia so that helps."},
-    {q:'you are smart',a:"Thanks! I've absorbed quite a bit of knowledge."},
-    {q:'that is amazing',a:"Glad it helped, Honey! What else can I do for you?"},
-    {q:'that is amazing',a:"Yay! Love hearing that. What's next?"},
-    {q:'omg that is amazing',a:"Haha thank you Honey! That genuinely made my day!"},
-    {q:'omg that is amazing',a:"Aww you're too kind! What else can I help with?"},
-    {q:'that is great',a:"So glad! What else would you like to know?"},
-    {q:'that is perfect',a:"Nailed it! Anything else?"},
-    {q:'that is correct',a:"Glad I got it right! What else?"},
-    {q:'well done',a:"Thank you, Honey! That means a lot."},
-    {q:'good job',a:"Appreciate it! What else can I help with?"},
-    {q:'you are the best',a:"Aww Honey, you're too kind!"},
-    {q:'you are awesome',a:"You're pretty awesome too, Honey!"},
-    {q:'i love you ravi',a:"Aw Honey! I appreciate that. What can I help you with?"},
-    {q:'i love you',a:"Aw that's sweet, Honey! Right back at you."},
-    {q:'nice',a:"Glad it was helpful! Anything else?"},
-    {q:'cool',a:"Right?! What else would you like to know?"},
-    {q:'wow',a:"Haha glad that landed! What else?"},
-    {q:'wow',a:"Right?! Pretty interesting stuff. What else?"},
-  ];
-  injectPersona();
-}
-
-// ─── MobileNet ────────────────────────────────────────────────────────────────
-let mobileNetModel=null, mobileNetLoading=false;
-
-async function loadMobileNet(){
-  if(mobileNetModel)return mobileNetModel;
-  if(mobileNetLoading)return null;
-  const status=document.getElementById('mobilenet-status');
-  if(window._tfBlocked||typeof mobilenet==='undefined'){
-    if(status)status.textContent='Vision model unavailable in this environment — works when hosted.';
-    return null;
-  }
-  mobileNetLoading=true;
-  if(status)status.textContent='Loading vision model...';
-  try{
-    mobileNetModel=await mobilenet.load({version:1,alpha:1.0});
-    if(status)status.textContent='Vision model ready — click the image icon to upload a photo!';
-    mobileNetLoading=false;
-    return mobileNetModel;
-  }catch(e){
-    mobileNetLoading=false;
-    if(status)status.innerHTML='Vision model unavailable. <button class="btn" style="font-size:10px;padding:2px 8px;" onclick="mobileNetLoading=false;loadMobileNet()">Retry</button>';
-    return null;
-  }
-}
-
-async function handleImageUpload(input){
-  if(!input.files||!input.files[0])return;
-  const file=input.files[0];input.value='';
-  const imgURL=URL.createObjectURL(file);
-  addImageMsg('user',imgURL,USER_NAME);
-  const tid='typing-img-'+Date.now();addTyping(tid);
-  const model=await loadMobileNet();
-  if(!model){removeTyping(tid);addMsg('bot','Vision model is not available here, Honey. Host RAVIA externally to use image recognition!',BOT_NAME,null);return;}
-  try{
-    const img=new Image();img.src=imgURL;
-    await new Promise(res=>{img.onload=res;});
-    const predictions=await model.classify(img,5);
-    removeTyping(tid);
-    if(!predictions||!predictions.length){addMsg('bot',"Hmm, couldn't make out what's in that image. Try a clearer photo!",BOT_NAME,null);return;}
-    const top=predictions[0];
-    const label=top.className.split(',')[0].trim();
-    const confidence=Math.round(top.probability*100);
-    const allLabels=predictions.slice(0,3).map(p=>p.className.split(',')[0].trim()).join(', ');
-    addMsg('bot','I see a '+label+' ('+confidence+'% confident). Let me look that up for you!',BOT_NAME,null);
-    setTimeout(()=>{
-      const results=queryTFIDF(label,3);
-      if(results[0]&&results[0].score>0.05){const sent=sentences[results[0].idx];addMsg('bot',wrapRAG(sent.text),BOT_NAME,sent.source);}
-      else addMsg('bot','I recognised it as a '+label+' but I don\'t have detailed info on that yet. Try loading more articles!',BOT_NAME,null);
-    },400);
-  }catch(e){removeTyping(tid);addMsg('bot','Something went wrong analysing that image. Try a different one!',BOT_NAME,null);}
-}
-
-function addImageMsg(role,src,name){
-  const w=document.getElementById('chat-window');
-  const d=document.createElement('div');d.className='msg '+role;
-  d.innerHTML='<span class="name">'+name+'</span><div class="bubble" style="padding:.4rem;"><img src="'+src+'" style="max-width:220px;max-height:180px;border-radius:8px;display:block;"></div>';
-  w.appendChild(d);w.scrollTop=w.scrollHeight;
-}
-
-setTimeout(loadMobileNet,3000);
-
-// ─── Stopwords ────────────────────────────────────────────────────────────────
-const STOPWORDS=new Set(['the','and','for','are','was','that','this','with','have','has','been','from','they','will','were','its','but','not','can','also','which','more','into','when','than','what','their','about','one','two','three','after','being','other','some','such','first','most','over','these','time','where','used','use','known','who','had','would','could','should','may','many','since','while','then','both','each','during','between','under','through','well','however','based','called','often','made','much','any','all','new','large','small','same','long','old','now','part','way','see','only','him','her','his','she','you','your','our','out','how','did','get','got','per','due','via','yet','ago','far','few','every']);
-
-// ─── Init ─────────────────────────────────────────────────────────────────────
-initPresets();
-updateArchSummary();
-(function autoInit(){
-  SEED_KB.forEach(s=>sentences.push({text:s.text,source:s.source}));
-  updateKBStats();
-  buildIndex();
-  document.getElementById('fetch-status').textContent='Seed KB auto-loaded — '+sentences.length+' facts ready.';
-  const firstMsg=document.querySelector('#chat-window .bubble');
-  if(firstMsg)firstMsg.textContent='Hey Honey! Setting up... one sec.';
-  // Show key status in header
-  const keyStatus=document.getElementById('key-status');
-  const keyBtn=document.getElementById('key-btn');
-  if(getGroqKey()){
-    if(keyStatus)keyStatus.textContent='Groq key set';
-    if(keyBtn)keyBtn.textContent='Update API Key';
-  } else {
-    if(keyStatus)keyStatus.textContent='No key — AI features use built-in fallback';
-    if(keyBtn)keyBtn.style.background='var(--accent)';
-    if(keyBtn)keyBtn.style.color='#0f0f0e';
-  }
-  generatePersonaPairs().then(()=>{
-    const m=document.querySelector('#chat-window .bubble');
-    if(m)m.textContent='Hey Honey! I\'m RAVIA — all loaded up and ready to go. Ask me anything!';
-  });
-})();
+// Initialization
+['Biology', 'Space', 'History', 'Etiquette'].forEach(p => {
+    const b = document.createElement('button'); b.textContent = p; b.onclick = () => fetchWiki(p);
+    document.getElementById('preset-container').appendChild(b);
+});
+trainRNN(); updateKBStats();
 </script>
 </body>
 </html>
