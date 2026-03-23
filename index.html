@@ -3,30 +3,18 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Voice Feedback</title>
+    <title>RAVIA Interface</title>
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-    <h1>Voice Feedback</h1>
-    <div id="voice-info"></div>
-    <button id="voice-preview">Preview Voice</button>
-
-    <script>
-        const voiceInfo = document.getElementById('voice-info');
-        const voicePreviewButton = document.getElementById('voice-preview');
-
-        // Assuming you have a function to get the current voice name
-        // const currentVoiceName = getCurrentVoiceName();
-        const currentVoiceName = 'Default Voice';  // Replace with actual logic
-
-        voiceInfo.innerText = 'Current Voice: ' + currentVoiceName;
-
-        voicePreviewButton.addEventListener('click', () => {
-            // Logic to preview the selected voice
-            const utterance = new SpeechSynthesisUtterance('This is a preview of the selected voice.');
-            // You would set the voice property of utterance based on the selected voice
-            // utterance.voice = getSelectedVoice();
-            speechSynthesis.speak(utterance);
-        });
-    </script>
+    <div id="app">
+        <h1>Welcome to the RAVIA Interface</h1>
+        <div id="voiceNameDisplay">Voice Name: <span id="voiceName">Default Voice</span></div>
+        <button id="testVoiceButton">TEST VOICE</button>
+        <div id="feedback">
+            <p>Enhanced voice feedback will be provided here.</p>
+        </div>
+    </div>
+    <script src="script.js"></script>
 </body>
 </html>
