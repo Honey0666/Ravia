@@ -3,47 +3,185 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RAVIA 3.5 Interface</title>
+    <title>RAVIA - Expressive AI</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
+    <script src="https://unpkg.com/@tensorflow-models/mobilenet@2.1.0/dist/mobilenet.min.js"></script>
     <style>
-        body { font-family: Arial, sans-serif; }
-        /* Add your CSS styles here */
+        :root { --bg: #0a0a0a; --surface: #141414; --accent: #ff4d8d; --text: #e0e0e0; --border: #2a2a2a; }
+        body { background: var(--bg); color: var(--text); font-family: 'DM Mono', monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        
+        /* Header & Voice Controls */
+        header { padding: 15px 30px; background: var(--surface); border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .voice-controls { display: flex; align-items: center; gap: 15px; }
+        select { background: #000; color: var(--accent); border: 1px solid var(--border); padding: 5px; font-family: inherit; font-size: 12px; border-radius: 4px; }
+        .vocal-btn { background: transparent; border: 1px solid var(--accent); color: var(--accent); padding: 8px 16px; border-radius: 20px; cursor: pointer; transition: 0.3s; font-weight: bold; }
+        .vocal-btn.off { border-color: #555; color: #555; }
+
+        /* Main Layout */
+        main { flex: 1; display: flex; overflow: hidden; }
+        #chat-window { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        .bubble { max-width: 75%; padding: 12px 18px; border-radius: 15px; line-height: 1.5; font-size: 14px; position: relative; }
+        .user { align-self: flex-end; background: #222; border: 1px solid var(--border); color: #fff; }
+        .bot { align-self: flex-start; background: rgba(255, 77, 141, 0.05); border-left: 3px solid var(--accent); }
+        
+        /* Input Area */
+        .input-bar { padding: 20px; background: var(--surface); border-top: 1px solid var(--border); display: flex; gap: 12px; }
+        input[type="text"] { flex: 1; background: #000; border: 1px solid var(--border); color: #fff; padding: 12px; border-radius: 8px; outline: none; }
+        button.action { background: var(--accent); color: #000; border: none; padding: 10px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; }
+
+        /* Sidebar */
+        aside { width: 320px; background: var(--surface); border-left: 1px solid var(--border); padding: 20px; font-size: 12px; }
+        .stats { color: var(--accent); margin-bottom: 20px; text-transform: uppercase; letter-spacing: 1px; }
+        .wiki-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .wiki-grid button { background: #111; color: #ccc; border: 1px solid var(--border); padding: 8px; cursor: pointer; border-radius: 4px; }
     </style>
 </head>
 <body>
-    <header>
-        <h1>Welcome to the RAVIA 3.5 Interface</h1>
-    </header>
-    <main>
-        <section>
-            <h2>Voice Controls</h2>
-            <p>Use voice commands to interact!</p>
-        </section>
-        <section>
-            <h2>Chat System</h2>
-            <div id="chatbox">
-                <p>Chat messages will appear here...</p>
-            </div>
-            <input type="text" id="chatInput" placeholder="Type your message...">
-        </section>
-        <section>
-            <h2>Memory Integration</h2>
-            <p>This feature remembers previous interactions.</p>
-        </section>
-        <section>
-            <h2>Wikipedia Integration</h2>
-            <p>Search Wikipedia directly!</p>
-        </section>
-        <section>
-            <h2>Image Classification</h2>
-            <p>Upload an image for classification.</p>
-            <input type="file" id="imageUpload" />
-        </section>
-    </main>
-    <footer>
-        <p>&copy; 2026 RAVIA. All rights reserved.</p>
-    </footer>
-    <script>
-        // Add your JavaScript functionalities here
-    </script>
+
+<header>
+    <div>
+        <div style="font-weight: bold; font-size: 20px; color: var(--accent);">RAVIA 3.5</div>
+        <div id="status" style="font-size: 10px; color: #888;">NEURAL LINK ACTIVE</div>
+    </div>
+    <div class="voice-controls">
+        <label style="font-size: 10px;">VOICE TONE:</label>
+        <select id="voiceSelect"></select>
+        <button id="voiceBtn" class="vocal-btn off" onclick="toggleVoice()">VOICE: OFF</button>
+    </div>
+</header>
+
+<main>
+    <div id="chat-window">
+        <div class="bubble bot">Welcome back, Honey. I've been recalibrated. Try the <b>Knowledge</b> buttons on the right to give me something real to talk about!</div>
+    </div>
+    
+    <aside>
+        <div class="stats" id="mem-count">0 FACTS IN MEMORY</div>
+        <p>Sync knowledge to stop babbling:</p>
+        <div class="wiki-grid">
+            <button onclick="fetchWiki('Psychology')">Psychology</button>
+            <button onclick="fetchWiki('Artificial Intelligence')">A.I.</button>
+            <button onclick="fetchWiki('Universe')">Universe</button>
+            <button onclick="fetchWiki('Philosophy')">Philosophy</button>
+        </div>
+        <button onclick="clearMem()" style="width: 100%; margin-top: 20px; background: #331111; color: #ff5555; border: 1px solid #552222; padding: 10px; border-radius: 4px; cursor: pointer;">Wipe Memory</button>
+    </aside>
+</main>
+
+<div class="input-bar">
+    <button onclick="document.getElementById('fileIn').click()" style="background:none; border: 1px solid var(--border); color: #fff; cursor:pointer; padding: 0 15px;">📷</button>
+    <input type="file" id="fileIn" hidden onchange="processImage(event)">
+    <input type="text" id="userInput" placeholder="Message RAVIA..." onkeydown="if(event.key==='Enter')send()">
+    <button class="action" onclick="send()">SEND</button>
+</div>
+
+<script>
+    let memory = JSON.parse(localStorage.getItem('ravia_v3_mem')) || [];
+    let voiceOn = false;
+    let voices = [];
+
+    // --- VOICE ENGINE ---
+    function initVoices() {
+        voices = window.speechSynthesis.getVoices();
+        const select = document.getElementById('voiceSelect');
+        select.innerHTML = voices.map((v, i) => `<option value="${i}">${v.name}</option>`).join('');
+        // Try to auto-select a feminine voice
+        const fem = voices.findIndex(v => v.name.includes('Female') || v.name.includes('Zira') || v.name.includes('Google UK English Female'));
+        if (fem !== -1) select.value = fem;
+    }
+    window.speechSynthesis.onvoiceschanged = initVoices;
+
+    function toggleVoice() {
+        voiceOn = !voiceOn;
+        const btn = document.getElementById('voiceBtn');
+        btn.className = voiceOn ? 'vocal-btn' : 'vocal-btn off';
+        btn.textContent = voiceOn ? 'VOICE: ON' : 'VOICE: OFF';
+        if(voiceOn) speak("Voice initialized. I'm ready to talk, Honey.");
+    }
+
+    function speak(text) {
+        if (!voiceOn) return;
+        window.speechSynthesis.cancel();
+        const msg = new SpeechSynthesisUtterance(text);
+        const selectedVoice = voices[document.getElementById('voiceSelect').value];
+        if (selectedVoice) msg.voice = selectedVoice;
+        
+        // Emotional settings
+        msg.pitch = 1.2; // Slightly higher for feminine tone
+        msg.rate = 1.0;
+        window.speechSynthesis.speak(msg);
+    }
+
+    // --- CHAT LOGIC ---
+    async function send() {
+        const input = document.getElementById('userInput');
+        const text = input.value.trim();
+        if (!text) return;
+
+        addMsg("Honey", text, "user");
+        input.value = "";
+
+        // 1. Search Memory (To avoid babbling)
+        let reply = "";
+        const keywords = text.toLowerCase().split(" ");
+        const match = memory.find(m => keywords.some(k => k.length > 3 && m.text.toLowerCase().includes(k)));
+
+        if (match) {
+            reply = match.text;
+        } else {
+            reply = "I don't have enough data on that yet, Honey. Try syncing a Wikipedia topic so I can speak more clearly!";
+        }
+
+        setTimeout(() => {
+            addMsg("RAVIA", reply, "bot");
+            speak(reply);
+        }, 600);
+    }
+
+    function addMsg(sender, text, type) {
+        const win = document.getElementById('chat-window');
+        const div = document.createElement('div');
+        div.className = `bubble ${type}`;
+        div.innerHTML = `<b>${sender}:</b> ${text}`;
+        win.appendChild(div);
+        win.scrollTop = win.scrollHeight;
+    }
+
+    // --- KNOWLEDGE ENGINE ---
+    async function fetchWiki(topic) {
+        document.getElementById('status').textContent = "SYNCING KNOWLEDGE...";
+        const url = `https://en.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&exintro=1&explaintext=1&titles=${topic}&origin=*`;
+        const res = await fetch(url).then(r => r.json());
+        const page = Object.values(res.query.pages)[0];
+        if (page.extract) {
+            const lines = page.extract.split(". ");
+            lines.forEach(l => { if(l.length > 20) memory.push({text: l + ".", source: topic}); });
+            localStorage.setItem('ravia_v3_mem', JSON.stringify(memory));
+            updateStats();
+            document.getElementById('status').textContent = "SYNC COMPLETE";
+        }
+    }
+
+    function updateStats() { document.getElementById('mem-count').textContent = `${memory.length} FACTS IN MEMORY`; }
+    function clearMem() { localStorage.clear(); memory = []; updateStats(); }
+    
+    // --- VISION ---
+    async function processImage(event) {
+        addMsg("System", "Analyzing image...", "bot");
+        const model = await mobilenet.load();
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(event.target.files[0]);
+        img.onload = async () => {
+            const res = await model.classify(img);
+            const msg = `This looks like a ${res[0].className}, Honey.`;
+            addMsg("RAVIA", msg, "bot");
+            speak(msg);
+        };
+    }
+
+    updateStats();
+    initVoices();
+</script>
 </body>
 </html>
