@@ -4,28 +4,46 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>RAVIA 3.5 Interface</title>
-    <script src="voice-controls.js"></script>
-    <script src="chat.js"></script>
-    <script src="memory-system.js"></script>
-    <script src="wikipedia-integration.js"></script>
-    <script src="image-classification.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        /* Add your CSS styles here */
+    </style>
 </head>
 <body>
-    <h1>Welcome to RAVIA 3.5</h1>
-    <div id="voice-controls">
-        <!-- Voice controls functionality goes here -->
-    </div>
-    <div id="chat">
-        <!-- Chat functionality goes here -->
-    </div>
-    <div id="memory-system">
-        <!-- Memory system functionality goes here -->
-    </div>
-    <div id="wikipedia-integration">
-        <!-- Wikipedia integration functionality goes here -->
-    </div>
-    <div id="image-classification">
-        <!-- Image classification functionality goes here -->
-    </div>
+    <header>
+        <h1>Welcome to the RAVIA 3.5 Interface</h1>
+    </header>
+    <main>
+        <section>
+            <h2>Voice Controls</h2>
+            <p>Use voice commands to interact!</p>
+        </section>
+        <section>
+            <h2>Chat System</h2>
+            <div id="chatbox">
+                <p>Chat messages will appear here...</p>
+            </div>
+            <input type="text" id="chatInput" placeholder="Type your message...">
+        </section>
+        <section>
+            <h2>Memory Integration</h2>
+            <p>This feature remembers previous interactions.</p>
+        </section>
+        <section>
+            <h2>Wikipedia Integration</h2>
+            <p>Search Wikipedia directly!</p>
+        </section>
+        <section>
+            <h2>Image Classification</h2>
+            <p>Upload an image for classification.</p>
+            <input type="file" id="imageUpload" />
+        </section>
+    </main>
+    <footer>
+        <p>&copy; 2026 RAVIA. All rights reserved.</p>
+    </footer>
+    <script>
+        // Add your JavaScript functionalities here
+    </script>
 </body>
 </html>
