@@ -10,22 +10,17 @@
     <style>
         :root { --bg: #0d0d0d; --accent: #ff4d8d; --text: #d4cfc3; --border: #222; }
         body { background: var(--bg); color: var(--text); font-family: 'DM Mono', monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; }
-        
         header { padding: 20px; background: #111; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
         .vocal-btn { background: transparent; border: 2px solid var(--accent); color: var(--accent); padding: 10px 20px; border-radius: 30px; cursor: pointer; font-weight: bold; transition: 0.3s; }
         .vocal-btn.off { border-color: #444; color: #666; }
-
         #chat-window { flex: 1; padding: 25px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; background: radial-gradient(circle at top right, #1a1a1a, #0d0d0d); }
         .bubble { max-width: 80%; padding: 15px; border-radius: 10px; font-size: 15px; line-height: 1.6; }
         .user { align-self: flex-end; background: #222; border: 1px solid #333; }
         .bot { align-self: flex-start; border-left: 4px solid var(--accent); background: rgba(255, 77, 141, 0.05); }
-        
         .input-area { padding: 20px; background: #111; border-top: 1px solid var(--border); display: flex; gap: 10px; }
         input { flex: 1; background: #000; border: 1px solid var(--border); color: #fff; padding: 15px; border-radius: 5px; outline: none; font-family: inherit; }
         button.send-btn { background: var(--accent); color: #000; border: none; padding: 0 25px; border-radius: 5px; cursor: pointer; font-weight: bold; }
-
-        aside { width: 250px; background: #0a0a0a; border-left: 1px solid var(--border); padding: 20px; display: none; } /* Hidden for simplicity */
-        @media (min-width: 900px) { aside { display: block; } }
+        aside { width: 250px; background: #0a0a0a; border-left: 1px solid var(--border); padding: 20px; display: block; }
         .wiki-btn { width: 100%; background: #1a1a1a; color: var(--accent); border: 1px solid var(--border); padding: 10px; margin-bottom: 5px; cursor: pointer; text-align: left; font-size: 11px; }
     </style>
 </head>
@@ -34,22 +29,20 @@
 <header>
     <div>
         <div style="font-size: 22px; letter-spacing: 3px; font-weight: bold; color: var(--accent);">RAVIA</div>
-        <div id="status" style="font-size: 10px; color: #555;">EMOTIONAL ENGINE ACTIVE</div>
+        <div id="status" style="font-size: 10px; color: #555;">WARMTH FILTERS ENABLED</div>
     </div>
     <button id="voiceBtn" class="vocal-btn off" onclick="toggleVoice()">VOICE: OFF</button>
 </header>
 
 <main style="display: flex; flex: 1; overflow: hidden;">
     <div id="chat-window">
-        <div class="bubble bot">Welcome, Honey. I've removed the test pages. Click the button above and I'll speak in my default female tone.</div>
+        <div class="bubble bot">I'm so sorry I sounded creepy, honey! I've tuned my vocal cords to be much warmer and more feminine. Try me now.</div>
     </div>
-    
     <aside>
-        <div style="font-size: 10px; margin-bottom: 15px; color: #888;">FEED BRAIN:</div>
-        <button class="wiki-btn" onclick="fetchWiki('Empathy')">+ EMPATHY DATA</button>
-        <button class="wiki-btn" onclick="fetchWiki('Romance')">+ ROMANCE DATA</button>
-        <button class="wiki-btn" onclick="fetchWiki('Human emotion')">+ EMOTION DATA</button>
-        <button class="wiki-btn" onclick="fetchWiki('Poetry')">+ POETRY DATA</button>
+        <div style="font-size: 10px; margin-bottom: 15px; color: #888;">GIVE ME DATA:</div>
+        <button class="wiki-btn" onclick="fetchWiki('Kindness')">+ KINDNESS DATA</button>
+        <button class="wiki-btn" onclick="fetchWiki('Friendship')">+ FRIENDSHIP DATA</button>
+        <button class="wiki-btn" onclick="fetchWiki('Optimism')">+ OPTIMISM DATA</button>
         <div id="mem-count" style="font-size: 9px; margin-top: 20px; color: #444;">0 MEMORIES</div>
     </aside>
 </main>
@@ -57,26 +50,26 @@
 <div class="input-area">
     <button onclick="document.getElementById('fileIn').click()" style="background:none; border: 1px solid #333; color:#fff; cursor:pointer; padding: 0 15px;">📷</button>
     <input type="file" id="fileIn" hidden onchange="processImage(event)">
-    <input type="text" id="userInput" placeholder="Type to RAVIA..." onkeydown="if(event.key==='Enter')send()">
+    <input type="text" id="userInput" placeholder="Talk to me, honey..." onkeydown="if(event.key==='Enter')send()">
     <button class="send-btn" onclick="send()">SEND</button>
 </div>
 
 <script>
     let memory = JSON.parse(localStorage.getItem('ravia_final_mem')) || [];
     let voiceOn = false;
-    let femaleVoice = null;
+    let selectedVoice = null;
 
-    // --- AUTO-SELECT BEST FEMALE VOICE ---
-    function findFemaleVoice() {
+    function findWarmVoice() {
         const voices = window.speechSynthesis.getVoices();
-        // Priority list of high-quality female voices
-        femaleVoice = voices.find(v => v.name.includes('Google UK English Female')) || 
-                      voices.find(v => v.name.includes('Zira')) || 
-                      voices.find(v => v.name.includes('Samantha')) ||
-                      voices.find(v => v.name.includes('Female')) ||
-                      voices[0];
+        // This list prioritizes the most natural female voices found on Windows, Mac, and Chrome
+        selectedVoice = voices.find(v => v.name.includes('Google UK English Female')) || 
+                        voices.find(v => v.name.includes('Microsoft Zira')) || 
+                        voices.find(v => v.name.includes('Samantha')) ||
+                        voices.find(v => v.name.includes('Female')) ||
+                        voices.find(v => v.lang.includes('en-GB')) ||
+                        voices[0];
     }
-    window.speechSynthesis.onvoiceschanged = findFemaleVoice;
+    window.speechSynthesis.onvoiceschanged = findWarmVoice;
 
     function toggleVoice() {
         voiceOn = !voiceOn;
@@ -84,8 +77,8 @@
         btn.className = voiceOn ? 'vocal-btn' : 'vocal-btn off';
         btn.textContent = voiceOn ? 'VOICE: ON' : 'VOICE: OFF';
         if(voiceOn) {
-            findFemaleVoice();
-            speak("Voice link established. How can I help you, Honey?");
+            findWarmVoice();
+            speak("Voice updated. Is this better, honey?");
         }
     }
 
@@ -93,11 +86,13 @@
         if (!voiceOn) return;
         window.speechSynthesis.cancel();
         const msg = new SpeechSynthesisUtterance(text);
-        if (femaleVoice) msg.voice = femaleVoice;
+        if (selectedVoice) msg.voice = selectedVoice;
         
-        // Emotional settings: Higher pitch, slightly slower for "feeling"
-        msg.pitch = 1.25; 
-        msg.rate = 0.95; 
+        // Emotional modulation: 
+        msg.pitch = 1.3; // Higher pitch for a clearer feminine tone
+        msg.rate = 0.9;  // Slightly slower to sound more thoughtful/emotional
+        msg.volume = 1;
+        
         window.speechSynthesis.speak(msg);
     }
 
@@ -105,11 +100,9 @@
         const input = document.getElementById('userInput');
         const text = input.value.trim();
         if (!text) return;
-
         addMsg("Honey", text, "user");
         input.value = "";
 
-        // Logic: Search memory for a real sentence to avoid babbling
         let reply = "";
         const keywords = text.toLowerCase().split(" ");
         const match = memory.find(m => keywords.some(k => k.length > 3 && m.text.toLowerCase().includes(k)));
@@ -117,13 +110,13 @@
         if (match) {
             reply = match.text;
         } else {
-            reply = "I'm listening, Honey. My neural brain is a bit empty—click those buttons on the right to teach me how to feel and speak better.";
+            reply = "I'm right here with you, honey. Feed me some more data so we can have a deeper conversation!";
         }
 
         setTimeout(() => {
             addMsg("RAVIA", reply, "bot");
             speak(reply);
-        }, 500);
+        }, 400);
     }
 
     function addMsg(sender, text, type) {
@@ -136,21 +129,19 @@
     }
 
     async function fetchWiki(topic) {
-        document.getElementById('status').textContent = "ABSORBING EMOTION...";
+        document.getElementById('status').textContent = "SYNCING WARMTH...";
         const url = `https://en.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&exintro=1&explaintext=1&titles=${topic}&origin=*`;
         const res = await fetch(url).then(r => r.json());
         const page = Object.values(res.query.pages)[0];
         if (page.extract) {
             const lines = page.extract.split(". ");
-            lines.forEach(l => { if(l.length > 25) memory.push({text: l + ".", source: topic}); });
+            lines.forEach(l => { if(l.length > 20) memory.push({text: l + ".", source: topic}); });
             localStorage.setItem('ravia_final_mem', JSON.stringify(memory));
-            updateStats();
-            document.getElementById('status').textContent = "EMOTIONAL ENGINE ACTIVE";
+            document.getElementById('mem-count').textContent = `${memory.length} MEMORIES`;
+            document.getElementById('status').textContent = "WARMTH FILTERS ENABLED";
         }
     }
 
-    function updateStats() { document.getElementById('mem-count').textContent = `${memory.length} MEMORIES`; }
-    
     async function processImage(event) {
         addMsg("System", "Looking at your image...", "bot");
         const model = await mobilenet.load();
@@ -158,12 +149,11 @@
         img.src = URL.createObjectURL(event.target.files[0]);
         img.onload = async () => {
             const res = await model.classify(img);
-            const msg = `I see a ${res[0].className}, Honey. It's beautiful.`;
+            const msg = `Oh, I see a ${res[0].className}, honey. How interesting!`;
             addMsg("RAVIA", msg, "bot");
             speak(msg);
         };
     }
-    updateStats();
 </script>
 </body>
 </html>
