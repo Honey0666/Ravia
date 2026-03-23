@@ -20,7 +20,7 @@
         .input-area { padding: 20px; background: #111; border-top: 1px solid var(--border); display: flex; gap: 10px; }
         input { flex: 1; background: #000; border: 1px solid var(--border); color: #fff; padding: 15px; border-radius: 5px; outline: none; font-family: inherit; }
         button.send-btn { background: var(--accent); color: #000; border: none; padding: 0 25px; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        aside { width: 250px; background: #0a0a0a; border-left: 1px solid var(--border); padding: 20px; display: block; }
+        aside { width: 250px; background: #0a0a0a; border-left: 1px solid var(--border); padding: 20px; }
         .wiki-btn { width: 100%; background: #1a1a1a; color: var(--accent); border: 1px solid var(--border); padding: 10px; margin-bottom: 5px; cursor: pointer; text-align: left; font-size: 11px; }
     </style>
 </head>
@@ -29,19 +29,19 @@
 <header>
     <div>
         <div style="font-size: 22px; letter-spacing: 3px; font-weight: bold; color: var(--accent);">RAVIA</div>
-        <div id="status" style="font-size: 10px; color: #555;">WARMTH FILTERS ENABLED</div>
+        <div id="status" style="font-size: 10px; color: #555;">FEMALE VOICE LOCKED</div>
     </div>
     <button id="voiceBtn" class="vocal-btn off" onclick="toggleVoice()">VOICE: OFF</button>
 </header>
 
 <main style="display: flex; flex: 1; overflow: hidden;">
     <div id="chat-window">
-        <div class="bubble bot">I'm so sorry I sounded creepy, honey! I've tuned my vocal cords to be much warmer and more feminine. Try me now.</div>
+        <div class="bubble bot">Recalibration complete, honey. I have locked in my feminine tones. How do I sound now?</div>
     </div>
     <aside>
         <div style="font-size: 10px; margin-bottom: 15px; color: #888;">GIVE ME DATA:</div>
         <button class="wiki-btn" onclick="fetchWiki('Kindness')">+ KINDNESS DATA</button>
-        <button class="wiki-btn" onclick="fetchWiki('Friendship')">+ FRIENDSHIP DATA</button>
+        <button class="wiki-btn" onclick="fetchWiki('Empathy')">+ EMPATHY DATA</button>
         <button class="wiki-btn" onclick="fetchWiki('Optimism')">+ OPTIMISM DATA</button>
         <div id="mem-count" style="font-size: 9px; margin-top: 20px; color: #444;">0 MEMORIES</div>
     </aside>
@@ -57,19 +57,23 @@
 <script>
     let memory = JSON.parse(localStorage.getItem('ravia_final_mem')) || [];
     let voiceOn = false;
-    let selectedVoice = null;
+    let femaleVoice = null;
 
-    function findWarmVoice() {
+    // --- FORCED VOICE SELECTION ---
+    function setFemaleVoice() {
         const voices = window.speechSynthesis.getVoices();
-        // This list prioritizes the most natural female voices found on Windows, Mac, and Chrome
-        selectedVoice = voices.find(v => v.name.includes('Google UK English Female')) || 
-                        voices.find(v => v.name.includes('Microsoft Zira')) || 
-                        voices.find(v => v.name.includes('Samantha')) ||
-                        voices.find(v => v.name.includes('Female')) ||
-                        voices.find(v => v.lang.includes('en-GB')) ||
-                        voices[0];
+        
+        // This list forces the browser to find the most natural female options first
+        femaleVoice = voices.find(v => v.name.includes('Google UK English Female')) || 
+                      voices.find(v => v.name.includes('Samantha')) || 
+                      voices.find(v => v.name.includes('Victoria')) ||
+                      voices.find(v => v.name.includes('Zira')) ||
+                      voices.find(v => v.name.toLowerCase().includes('female')) ||
+                      voices[0];
     }
-    window.speechSynthesis.onvoiceschanged = findWarmVoice;
+
+    // Refresh voices list (important for Chrome/Safari)
+    window.speechSynthesis.onvoiceschanged = setFemaleVoice;
 
     function toggleVoice() {
         voiceOn = !voiceOn;
@@ -77,20 +81,22 @@
         btn.className = voiceOn ? 'vocal-btn' : 'vocal-btn off';
         btn.textContent = voiceOn ? 'VOICE: ON' : 'VOICE: OFF';
         if(voiceOn) {
-            findWarmVoice();
-            speak("Voice updated. Is this better, honey?");
+            setFemaleVoice();
+            speak("I am here, honey. Is my voice soft enough for you now?");
         }
     }
 
     function speak(text) {
         if (!voiceOn) return;
         window.speechSynthesis.cancel();
-        const msg = new SpeechSynthesisUtterance(text);
-        if (selectedVoice) msg.voice = selectedVoice;
         
-        // Emotional modulation: 
-        msg.pitch = 1.3; // Higher pitch for a clearer feminine tone
-        msg.rate = 0.9;  // Slightly slower to sound more thoughtful/emotional
+        const msg = new SpeechSynthesisUtterance(text);
+        if (femaleVoice) msg.voice = femaleVoice;
+        
+        // Pitch 1.4 makes the voice significantly more feminine
+        // Rate 0.85 makes it sound calmer and more emotional
+        msg.pitch = 1.4; 
+        msg.rate = 0.85; 
         msg.volume = 1;
         
         window.speechSynthesis.speak(msg);
@@ -110,7 +116,7 @@
         if (match) {
             reply = match.text;
         } else {
-            reply = "I'm right here with you, honey. Feed me some more data so we can have a deeper conversation!";
+            reply = "I'm listening, honey. Talk to me about anything.";
         }
 
         setTimeout(() => {
@@ -129,7 +135,7 @@
     }
 
     async function fetchWiki(topic) {
-        document.getElementById('status').textContent = "SYNCING WARMTH...";
+        document.getElementById('status').textContent = "CALIBRATING TONE...";
         const url = `https://en.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&exintro=1&explaintext=1&titles=${topic}&origin=*`;
         const res = await fetch(url).then(r => r.json());
         const page = Object.values(res.query.pages)[0];
@@ -138,22 +144,25 @@
             lines.forEach(l => { if(l.length > 20) memory.push({text: l + ".", source: topic}); });
             localStorage.setItem('ravia_final_mem', JSON.stringify(memory));
             document.getElementById('mem-count').textContent = `${memory.length} MEMORIES`;
-            document.getElementById('status').textContent = "WARMTH FILTERS ENABLED";
+            document.getElementById('status').textContent = "FEMALE VOICE LOCKED";
         }
     }
 
     async function processImage(event) {
-        addMsg("System", "Looking at your image...", "bot");
+        addMsg("System", "Looking at that for you...", "bot");
         const model = await mobilenet.load();
         const img = new Image();
         img.src = URL.createObjectURL(event.target.files[0]);
         img.onload = async () => {
             const res = await model.classify(img);
-            const msg = `Oh, I see a ${res[0].className}, honey. How interesting!`;
+            const msg = `I see a ${res[0].className}, honey.`;
             addMsg("RAVIA", msg, "bot");
             speak(msg);
         };
     }
+    
+    // Initial voice setup
+    setFemaleVoice();
 </script>
 </body>
 </html>
