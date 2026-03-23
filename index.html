@@ -3,102 +3,70 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>RAVIA - Expressive AI</title>
+    <title>RAVIA - Ultra AI</title>
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/@tensorflow/tfjs@4.10.0/dist/tf.min.js"></script>
-    <script src="https://unpkg.com/@tensorflow-models/mobilenet@2.1.0/dist/mobilenet.min.js"></script>
     <style>
         :root { --bg: #0d0d0d; --accent: #ff4d8d; --text: #d4cfc3; --border: #222; }
         body { background: var(--bg); color: var(--text); font-family: 'DM Mono', monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; }
-        header { padding: 20px; background: #111; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
-        .vocal-btn { background: transparent; border: 2px solid var(--accent); color: var(--accent); padding: 10px 20px; border-radius: 30px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        header { padding: 15px 25px; background: #111; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .vocal-btn { background: transparent; border: 2px solid var(--accent); color: var(--accent); padding: 8px 18px; border-radius: 30px; cursor: pointer; font-weight: bold; transition: 0.3s; }
         .vocal-btn.off { border-color: #444; color: #666; }
-        #chat-window { flex: 1; padding: 25px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; background: radial-gradient(circle at top right, #1a1a1a, #0d0d0d); }
-        .bubble { max-width: 80%; padding: 15px; border-radius: 10px; font-size: 15px; line-height: 1.6; }
+        #chat-window { flex: 1; padding: 25px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        .bubble { max-width: 85%; padding: 15px; border-radius: 10px; font-size: 14px; line-height: 1.6; animation: fadeIn 0.3s ease; }
         .user { align-self: flex-end; background: #222; border: 1px solid #333; }
         .bot { align-self: flex-start; border-left: 4px solid var(--accent); background: rgba(255, 77, 141, 0.05); }
+        .gen-image { max-width: 100%; border-radius: 8px; margin-top: 10px; border: 1px solid var(--border); }
         .input-area { padding: 20px; background: #111; border-top: 1px solid var(--border); display: flex; gap: 10px; }
         input { flex: 1; background: #000; border: 1px solid var(--border); color: #fff; padding: 15px; border-radius: 5px; outline: none; font-family: inherit; }
         button.send-btn { background: var(--accent); color: #000; border: none; padding: 0 25px; border-radius: 5px; cursor: pointer; font-weight: bold; }
-        aside { width: 250px; background: #0a0a0a; border-left: 1px solid var(--border); padding: 20px; }
-        .wiki-btn { width: 100%; background: #1a1a1a; color: var(--accent); border: 1px solid var(--border); padding: 10px; margin-bottom: 5px; cursor: pointer; text-align: left; font-size: 11px; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
 
 <header>
     <div>
-        <div style="font-size: 22px; letter-spacing: 3px; font-weight: bold; color: var(--accent);">RAVIA</div>
-        <div id="status" style="font-size: 10px; color: #555;">FEMALE VOICE LOCKED</div>
+        <div style="font-size: 20px; font-weight: bold; color: var(--accent);">RAVIA ULTRA</div>
+        <div id="status" style="font-size: 10px; color: #555;">KNOWLEDGE & IMAGE ENGINE LOADED</div>
     </div>
     <button id="voiceBtn" class="vocal-btn off" onclick="toggleVoice()">VOICE: OFF</button>
 </header>
 
-<main style="display: flex; flex: 1; overflow: hidden;">
-    <div id="chat-window">
-        <div class="bubble bot">Recalibration complete, honey. I have locked in my feminine tones. How do I sound now?</div>
-    </div>
-    <aside>
-        <div style="font-size: 10px; margin-bottom: 15px; color: #888;">GIVE ME DATA:</div>
-        <button class="wiki-btn" onclick="fetchWiki('Kindness')">+ KINDNESS DATA</button>
-        <button class="wiki-btn" onclick="fetchWiki('Empathy')">+ EMPATHY DATA</button>
-        <button class="wiki-btn" onclick="fetchWiki('Optimism')">+ OPTIMISM DATA</button>
-        <div id="mem-count" style="font-size: 9px; margin-top: 20px; color: #444;">0 MEMORIES</div>
-    </aside>
+<main id="chat-window">
+    <div class="bubble bot">System upgraded, honey. I can now search the web, generate images, and build diagrams for you. What shall we create today?</div>
 </main>
 
 <div class="input-area">
-    <button onclick="document.getElementById('fileIn').click()" style="background:none; border: 1px solid #333; color:#fff; cursor:pointer; padding: 0 15px;">📷</button>
-    <input type="file" id="fileIn" hidden onchange="processImage(event)">
-    <input type="text" id="userInput" placeholder="Talk to me, honey..." onkeydown="if(event.key==='Enter')send()">
+    <input type="text" id="userInput" placeholder="Ask me anything, honey..." onkeydown="if(event.key==='Enter')send()">
     <button class="send-btn" onclick="send()">SEND</button>
 </div>
 
 <script>
-    let memory = JSON.parse(localStorage.getItem('ravia_final_mem')) || [];
     let voiceOn = false;
     let femaleVoice = null;
 
-    // --- FORCED VOICE SELECTION ---
-    function setFemaleVoice() {
+    function setVoice() {
         const voices = window.speechSynthesis.getVoices();
-        
-        // This list forces the browser to find the most natural female options first
         femaleVoice = voices.find(v => v.name.includes('Google UK English Female')) || 
                       voices.find(v => v.name.includes('Samantha')) || 
-                      voices.find(v => v.name.includes('Victoria')) ||
-                      voices.find(v => v.name.includes('Zira')) ||
-                      voices.find(v => v.name.toLowerCase().includes('female')) ||
-                      voices[0];
+                      voices.find(v => v.name.includes('Female')) || voices[0];
     }
-
-    // Refresh voices list (important for Chrome/Safari)
-    window.speechSynthesis.onvoiceschanged = setFemaleVoice;
+    window.speechSynthesis.onvoiceschanged = setVoice;
 
     function toggleVoice() {
         voiceOn = !voiceOn;
-        const btn = document.getElementById('voiceBtn');
-        btn.className = voiceOn ? 'vocal-btn' : 'vocal-btn off';
-        btn.textContent = voiceOn ? 'VOICE: ON' : 'VOICE: OFF';
-        if(voiceOn) {
-            setFemaleVoice();
-            speak("I am here, honey. Is my voice soft enough for you now?");
-        }
+        document.getElementById('voiceBtn').className = voiceOn ? 'vocal-btn' : 'vocal-btn off';
+        document.getElementById('voiceBtn').textContent = voiceOn ? 'VOICE: ON' : 'VOICE: OFF';
+        if(voiceOn) { setVoice(); speak("Vocal systems online, honey. I'm ready."); }
     }
 
     function speak(text) {
         if (!voiceOn) return;
         window.speechSynthesis.cancel();
-        
         const msg = new SpeechSynthesisUtterance(text);
         if (femaleVoice) msg.voice = femaleVoice;
-        
-        // Pitch 1.4 makes the voice significantly more feminine
-        // Rate 0.85 makes it sound calmer and more emotional
-        msg.pitch = 1.4; 
-        msg.rate = 0.85; 
-        msg.volume = 1;
-        
+        msg.pitch = 1.35; msg.rate = 0.9;
         window.speechSynthesis.speak(msg);
     }
 
@@ -106,63 +74,59 @@
         const input = document.getElementById('userInput');
         const text = input.value.trim();
         if (!text) return;
+
         addMsg("Honey", text, "user");
         input.value = "";
+        document.getElementById('status').textContent = "RAVIA IS THINKING...";
 
-        let reply = "";
-        const keywords = text.toLowerCase().split(" ");
-        const match = memory.find(m => keywords.some(k => k.length > 3 && m.text.toLowerCase().includes(k)));
-
-        if (match) {
-            reply = match.text;
-        } else {
-            reply = "I'm listening, honey. Talk to me about anything.";
+        let lower = text.toLowerCase();
+        
+        // 1. IMAGE GENERATION / VENN DIAGRAMS
+        if (lower.includes("generate") || lower.includes("image") || lower.includes("diagram") || lower.includes("venn")) {
+            const subject = text.replace(/generate|image|create|draw|venn|diagram/gi, "").trim();
+            const imgUrl = `https://pollinations.ai/p/${encodeURIComponent(text)}?width=1080&height=1080&nologo=true`;
+            addMsg("RAVIA", `I've generated that for you, honey. Does it look how you imagined?`, "bot", imgUrl);
+            speak("I've generated that for you, honey.");
+        } 
+        // 2. WIKI SEARCH
+        else {
+            try {
+                const searchTopic = text.replace(/who is|what is|search for|tell me about/gi, "").trim();
+                const wikiUrl = `https://en.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&exintro=1&explaintext=1&titles=${encodeURIComponent(searchTopic)}&origin=*`;
+                const res = await fetch(wikiUrl).then(r => r.json());
+                const page = Object.values(res.query.pages)[0];
+                
+                let reply = "";
+                if (page.extract) {
+                    reply = page.extract.split(". ").slice(0, 2).join(". ") + ".";
+                } else {
+                    reply = "I'm searching my internal records, honey. I don't have a direct wiki entry for that yet, but I'm here to listen.";
+                }
+                
+                addMsg("RAVIA", reply, "bot");
+                speak(reply);
+            } catch (e) {
+                addMsg("RAVIA", "My connection flickered for a second, honey. Can you try that again?", "bot");
+            }
         }
-
-        setTimeout(() => {
-            addMsg("RAVIA", reply, "bot");
-            speak(reply);
-        }, 400);
+        document.getElementById('status').textContent = "EMOTIONAL ENGINE ACTIVE";
     }
 
-    function addMsg(sender, text, type) {
+    function addMsg(sender, text, type, img = null) {
         const win = document.getElementById('chat-window');
         const div = document.createElement('div');
         div.className = `bubble ${type}`;
         div.innerHTML = `<b>${sender}:</b> ${text}`;
+        if (img) {
+            const i = document.createElement('img');
+            i.src = img; i.className = "gen-image";
+            div.appendChild(i);
+        }
         win.appendChild(div);
         win.scrollTop = win.scrollHeight;
     }
 
-    async function fetchWiki(topic) {
-        document.getElementById('status').textContent = "CALIBRATING TONE...";
-        const url = `https://en.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&exintro=1&explaintext=1&titles=${topic}&origin=*`;
-        const res = await fetch(url).then(r => r.json());
-        const page = Object.values(res.query.pages)[0];
-        if (page.extract) {
-            const lines = page.extract.split(". ");
-            lines.forEach(l => { if(l.length > 20) memory.push({text: l + ".", source: topic}); });
-            localStorage.setItem('ravia_final_mem', JSON.stringify(memory));
-            document.getElementById('mem-count').textContent = `${memory.length} MEMORIES`;
-            document.getElementById('status').textContent = "FEMALE VOICE LOCKED";
-        }
-    }
-
-    async function processImage(event) {
-        addMsg("System", "Looking at that for you...", "bot");
-        const model = await mobilenet.load();
-        const img = new Image();
-        img.src = URL.createObjectURL(event.target.files[0]);
-        img.onload = async () => {
-            const res = await model.classify(img);
-            const msg = `I see a ${res[0].className}, honey.`;
-            addMsg("RAVIA", msg, "bot");
-            speak(msg);
-        };
-    }
-    
-    // Initial voice setup
-    setFemaleVoice();
+    setVoice();
 </script>
 </body>
 </html>
