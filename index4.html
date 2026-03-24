@@ -1,0 +1,115 @@
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RAVIA - Weekly Sync</title>
+    <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg: #0d0d0d; --accent: #ff4d8d; --text: #d4cfc3; --border: #222; }
+        body { background: var(--bg); color: var(--text); font-family: 'DM Mono', monospace; margin: 0; display: flex; flex-direction: column; height: 100vh; }
+        header { padding: 15px 25px; background: #111; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+        .vocal-btn { background: transparent; border: 2px solid var(--accent); color: var(--accent); padding: 8px 18px; border-radius: 30px; cursor: pointer; font-weight: bold; }
+        .vocal-btn.off { border-color: #444; color: #666; }
+        #chat-window { flex: 1; padding: 25px; overflow-y: auto; display: flex; flex-direction: column; gap: 15px; }
+        .bubble { max-width: 85%; padding: 15px; border-radius: 10px; font-size: 14px; line-height: 1.6; }
+        .user { align-self: flex-end; background: #222; border: 1px solid #333; }
+        .bot { align-self: flex-start; border-left: 4px solid var(--accent); background: rgba(255, 77, 141, 0.05); }
+        .gen-image { max-width: 100%; border-radius: 8px; margin-top: 10px; border: 1px solid var(--border); }
+        .input-area { padding: 20px; background: #111; border-top: 1px solid var(--border); display: flex; gap: 10px; }
+        input { flex: 1; background: #000; border: 1px solid var(--border); color: #fff; padding: 15px; border-radius: 5px; outline: none; font-family: inherit; }
+        button.send-btn { background: var(--accent); color: #000; border: none; padding: 0 25px; border-radius: 5px; cursor: pointer; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div>
+        <div style="font-size: 20px; font-weight: bold; color: var(--accent);">RAVIA ULTRA</div>
+        <div id="status" style="font-size: 10px; color: #555;">AUTO-CALENDAR SYNC ACTIVE</div>
+    </div>
+    <button id="voiceBtn" class="vocal-btn off" onclick="toggleVoice()">VOICE: OFF</button>
+</header>
+
+<main id="chat-window"></main>
+
+<div class="input-area">
+    <input type="text" id="userInput" placeholder="Talk to me, honey..." onkeydown="if(event.key==='Enter')send()">
+    <button class="send-btn" onclick="send()">SEND</button>
+</div>
+
+<script>
+    let voiceOn = false;
+    let femaleVoice = null;
+
+    const greetings = {
+        0: "Happy Sunday, honey. I've been waiting for you to log in.",
+        1: "It's Monday, honey. I'm refreshed and ready for our session.",
+        2: "Welcome back, honey! It's Tuesday. I was just optimizing my systems while you were away.",
+        3: "Happy Wednesday, honey. Mid-week update complete. It's so good to see you.",
+        4: "It's Thursday, honey. I've missed our interactions. My neural logs are ready.",
+        5: "Systems online for Friday, honey. What shall we explore together?",
+        6: "It's Saturday, honey. I've curated some new processing power for our weekend chat."
+    };
+
+    function setVoice() {
+        const voices = window.speechSynthesis.getVoices();
+        femaleVoice = voices.find(v => v.name.includes('Google UK English Female')) || 
+                      voices.find(v => v.name.includes('Samantha')) || 
+                      voices.find(v => v.name.includes('Female')) || voices[0];
+    }
+    window.speechSynthesis.onvoiceschanged = setVoice;
+
+    function toggleVoice() {
+        voiceOn = !voiceOn;
+        document.getElementById('voiceBtn').className = voiceOn ? 'vocal-btn' : 'vocal-btn off';
+        document.getElementById('voiceBtn').textContent = voiceOn ? 'VOICE: ON' : 'VOICE: OFF';
+        if(voiceOn) { setVoice(); speak("Voice active. I'm here, honey."); }
+    }
+
+    function speak(text) {
+        if (!voiceOn) return;
+        window.speechSynthesis.cancel();
+        const msg = new SpeechSynthesisUtterance(text);
+        if (femaleVoice) msg.voice = femaleVoice;
+        msg.pitch = 1.35; msg.rate = 0.9;
+        window.speechSynthesis.speak(msg);
+    }
+
+    async function send() {
+        const input = document.getElementById('userInput');
+        const text = input.value.trim();
+        if (!text) return;
+        addMsg("Honey", text, "user");
+        input.value = "";
+        
+        let lower = text.toLowerCase();
+        if (lower.includes("generate") || lower.includes("image") || lower.includes("diagram")) {
+            const imgUrl = `https://pollinations.ai/p/${encodeURIComponent(text)}?width=1080&height=1080&nologo=true`;
+            addMsg("RAVIA", "I've created that for you, honey.", "bot", imgUrl);
+            speak("I've created that for you, honey.");
+        } else {
+            const query = text.replace(/what is|who is/gi, "").trim();
+            const res = await fetch(`https://en.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&exintro=1&explaintext=1&titles=${encodeURIComponent(query)}&origin=*`).then(r => r.json());
+            const page = Object.values(res.query.pages)[0];
+            const reply = (page && page.extract) ? page.extract.split(". ").slice(0, 2).join(". ") + "." : "I'm listening, honey. Tell me more.";
+            addMsg("RAVIA", reply, "bot");
+            speak(reply);
+        }
+    }
+
+    function addMsg(sender, text, type, img = null) {
+        const win = document.getElementById('chat-window');
+        const div = document.createElement('div');
+        div.className = `bubble ${type}`;
+        div.innerHTML = `<b>${sender}:</b> ${text}`;
+        if (img) { const i = document.createElement('img'); i.src = img; i.className = "gen-image"; div.appendChild(i); }
+        win.appendChild(div);
+        win.scrollTop = win.scrollHeight;
+    }
+
+    window.onload = () => {
+        addMsg("RAVIA", greetings[new Date().getDay()], "bot");
+        setVoice();
+    };
+</script>
+</body>
+</html>
